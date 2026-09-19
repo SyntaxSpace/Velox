@@ -3,7 +3,7 @@
  *
  * Zod schemas for request validation, shared between frontend and backend.
  * This ensures a single source of truth for validation rules.
- * 
+ *
  * Uses Zod v4 API.
  */
 
@@ -18,7 +18,10 @@ export const registerSchema = z.object({
   email: z.email('Invalid email address'),
   password: z
     .string()
-    .min(AUTH.MIN_PASSWORD_LENGTH, `Password must be at least ${AUTH.MIN_PASSWORD_LENGTH} characters`),
+    .min(
+      AUTH.MIN_PASSWORD_LENGTH,
+      `Password must be at least ${AUTH.MIN_PASSWORD_LENGTH} characters`,
+    ),
 });
 
 export const loginSchema = z.object({
@@ -44,9 +47,7 @@ export const createOrderSchema = z.object({
 
 export const fileUploadSchema = z.object({
   filename: z.string().min(1, 'Filename is required'),
-  mimeType: z.literal('application/pdf')
-    .or(z.literal('image/png'))
-    .or(z.literal('image/jpeg')),
+  mimeType: z.literal('application/pdf').or(z.literal('image/png')).or(z.literal('image/jpeg')),
   size: z
     .number()
     .max(FILE_UPLOAD.MAX_SIZE_BYTES, `File size must not exceed ${FILE_UPLOAD.MAX_SIZE_MB}MB`),

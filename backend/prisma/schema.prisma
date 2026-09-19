@@ -6,3 +6,238 @@ datasource db {
 generator client {
   provider = "prisma-client-js"
 }
+
+enum UserRole {
+  CUSTOMER
+  OPERATOR
+  OWNER
+  ADMIN
+}
+
+enum OrderStatus {
+  PENDING
+  WAITING
+  ASSIGNED
+  DOWNLOADING
+  PRINTING
+  COMPLETED
+  COLLECTED
+  CANCELLED
+  FAILED
+  DELETED
+}
+
+enum PaymentStatus {
+  PENDING
+  SUCCESS
+  FAILED
+  REFUNDED
+}
+
+enum PaymentMethod {
+  UPI
+  COUNTER
+  CARD
+}
+
+enum PrinterType {
+  BLACK_WHITE
+  COLOR
+  BULK
+}
+
+enum PrinterStatus {
+  ONLINE
+  OFFLINE
+  PRINTING
+  PAUSED
+}
+
+enum ShopStatus {
+  ACTIVE
+  INACTIVE
+  SUSPENDED
+}
+
+model Shop {
+  id        String     @id @default(uuid()) @db.Uuid
+  name      String     @db.VarChar(100)
+  qrCode    String     @unique @map("qr_code")
+  address   String?    @db.Text
+  phone     String?    @db.VarChar(15)
+  email     String?    @db.VarChar(255)
+  status    ShopStatus @default(ACTIVE)
+  createdAt DateTime   @default(now()) @map("created_at")
+  updatedAt DateTime   @updatedAt @map("updated_at")
+
+  users        User[]
+  printers     Printer[]
+  orders       Order[]
+  transactions Transaction[]
+  devices      Device[]
+
+  @@map("shops")
+}
+
+model User {
+  id           String   @id @default(uuid()) @db.Uuid
+  shopId       String?  @map("shop_id") @db.Uuid
+  name         String   @db.VarChar(100)
+  email        String   @unique @db.VarChar(255)
+  phone        String?  @db.VarChar(15)
+  role         UserRole
+  passwordHash String   @map("password_hash") @db.VarChar(255)
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  shop          Shop?          @relation(fields: [shopId], references: [id], onDelete: SetNull)
+  orders        Order[]
+  notifications Notification[]
+
+  @@index([shopId])
+  @@index([role])
+  @@map("users")
+}
+
+model Printer {
+  id             String        @id @default(uuid()) @db.Uuid
+  shopId         String        @map("shop_id") @db.Uuid
+  name           String        @db.VarChar(100)
+  printerType    PrinterType   @map("printer_type")
+  status         PrinterStatus @default(OFFLINE)
+  ipAddress      String?       @map("ip_address") @db.VarChar(50)
+  pagesPerMinute Int           @default(0) @map("pages_per_minute")
+  createdAt      DateTime      @default(now()) @map("created_at")
+
+  shop   Shop    @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  orders Order[]
+
+  @@index([shopId])
+  @@index([status])
+  @@map("printers")
+}
+
+model Order {
+  id            String        @id @default(uuid()) @db.Uuid
+  orderCode     String        @unique @map("order_code")
+  userId        String        @map("user_id") @db.Uuid
+  shopId        String        @map("shop_id") @db.Uuid
+  printerId     String?       @map("printer_id") @db.Uuid
+  queuePosition Int?          @map("queue_position")
+  totalPages    Int           @default(0) @map("total_pages")
+  totalPrice    Decimal       @default(0) @map("total_price") @db.Decimal(10, 2)
+  paymentStatus PaymentStatus @default(PENDING) @map("payment_status")
+  orderStatus   OrderStatus   @default(PENDING) @map("order_status")
+  estimatedTime Int?          @map("estimated_time")
+  copies        Int           @default(1)
+  color         String        @default("bw") @db.VarChar(10)
+  doubleSided   Boolean       @default(false) @map("double_sided")
+  orientation   String        @default("portrait") @db.VarChar(20)
+  paperSize     String        @default("A4") @map("paper_size") @db.VarChar(10)
+  createdAt     DateTime      @default(now()) @map("created_at")
+
+  user    User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  shop    Shop         @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  printer Printer?     @relation(fields: [printerId], references: [id], onDelete: SetNull)
+  files   OrderFile[]
+  payment Payment?
+  events  OrderEvent[]
+  transactions Transaction[]
+
+  @@index([shopId])
+  @@index([userId])
+  @@index([orderStatus])
+  @@map("orders")
+}
+
+model OrderFile {
+  id          String    @id @default(uuid()) @db.Uuid
+  orderId     String    @map("order_id") @db.Uuid
+  filename    String    @db.VarChar(255)
+  fileUrl     String    @map("file_url") @db.VarChar(500)
+  pageCount   Int       @default(0) @map("page_count")
+  size        BigInt
+  mimeType    String    @map("mime_type") @db.VarChar(100)
+  deleteAfter DateTime? @map("delete_after")
+
+  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([orderId])
+  @@map("order_files")
+}
+
+model Payment {
+  id            String        @id @default(uuid()) @db.Uuid
+  orderId       String        @unique @map("order_id") @db.Uuid
+  method        PaymentMethod
+  amount        Decimal       @db.Decimal(10, 2)
+  transactionId String?       @map("transaction_id") @db.VarChar(255)
+  status        PaymentStatus @default(PENDING)
+  createdAt     DateTime      @default(now()) @map("created_at")
+
+  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([status])
+  @@index([transactionId])
+  @@map("payments")
+}
+
+model Transaction {
+  id            String        @id @default(uuid()) @db.Uuid
+  shopId        String        @map("shop_id") @db.Uuid
+  orderId       String        @map("order_id") @db.Uuid
+  amount        Decimal       @db.Decimal(10, 2)
+  paymentMethod PaymentMethod @map("payment_method")
+  createdAt     DateTime      @default(now()) @map("created_at")
+
+  shop  Shop  @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([shopId])
+  @@map("transactions")
+}
+
+model Notification {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  title     String   @db.VarChar(255)
+  message   String   @db.Text
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([read])
+  @@map("notifications")
+}
+
+model OrderEvent {
+  id        String   @id @default(uuid()) @db.Uuid
+  orderId   String   @map("order_id") @db.Uuid
+  event     String   @db.VarChar(100)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([orderId])
+  @@index([event])
+  @@map("order_events")
+}
+
+model Device {
+  id            String    @id @default(uuid()) @db.Uuid
+  shopId        String    @map("shop_id") @db.Uuid
+  deviceId      String    @unique @map("device_id") @db.VarChar(100)
+  name          String    @db.VarChar(100)
+  deviceKey     String    @map("device_key") @db.VarChar(255)
+  status        String    @default("OFFLINE") @db.VarChar(20)
+  lastHeartbeat DateTime? @map("last_heartbeat")
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+
+  shop          Shop      @relation(fields: [shopId], references: [id], onDelete: Cascade)
+
+  @@index([shopId])
+  @@map("devices")
+}

@@ -5,7 +5,7 @@
 
 const https = require('https');
 
-const TOKEN = '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';
+const TOKEN = process.env.GITHUB_TOKEN || '';
 const REPO = 'SyntaxSpace/Velox';
 
 function apiRequest(path, method, body = null) {
@@ -17,8 +17,8 @@ function apiRequest(path, method, body = null) {
       method: method,
       headers: {
         'User-Agent': 'Velox-Setup-Script',
-        'Authorization': `Bearer ${TOKEN}`,
-        'Accept': 'application/vnd.github.v3+json',
+        Authorization: `Bearer ${TOKEN}`,
+        Accept: 'application/vnd.github.v3+json',
         'Content-Type': 'application/json',
       },
     };
@@ -55,42 +55,94 @@ function apiRequest(path, method, body = null) {
 
 // ─── 1. LABELS ────────────────────────────────────────────────────────
 const labels = [
-  { name: 'backend', color: '0E8A16', description: 'Backend API, Services, & Server Infrastructure' },
+  {
+    name: 'backend',
+    color: '0E8A16',
+    description: 'Backend API, Services, & Server Infrastructure',
+  },
   { name: 'frontend', color: '1D76DB', description: 'Next.js 15 App Router Frontend & UI' },
   { name: 'edge', color: 'F9D0C4', description: 'Windows Edge Agent (.NET 8 Service)' },
   { name: 'database', color: '5319E7', description: 'PostgreSQL Database & Prisma Schema' },
   { name: 'api', color: '0052CC', description: 'REST API endpoints & contracts' },
   { name: 'authentication', color: 'BF360C', description: 'JWT, Argon2id, & Role-based Security' },
   { name: 'payments', color: '006B75', description: 'Razorpay & Counter Payment integrations' },
-  { name: 'queue-engine', color: 'D93F0B', description: 'Core Queue calculation, ETA, & Scheduling' },
+  {
+    name: 'queue-engine',
+    color: 'D93F0B',
+    description: 'Core Queue calculation, ETA, & Scheduling',
+  },
   { name: 'windows-agent', color: 'FBCA04', description: 'Windows Desktop Agent & Print Spooler' },
-  { name: 'bug', color: 'd73a4a', description: 'Something isn\'t working correctly' },
+  { name: 'bug', color: 'd73a4a', description: "Something isn't working correctly" },
   { name: 'enhancement', color: 'a2eeef', description: 'New feature or request' },
-  { name: 'documentation', color: '0075ca', description: 'Improvements or additions to documentation' },
+  {
+    name: 'documentation',
+    color: '0075ca',
+    description: 'Improvements or additions to documentation',
+  },
   { name: 'design', color: 'd4c5f9', description: 'UI/UX, Framer Motion, and Design System' },
   { name: 'testing', color: 'c2e0c6', description: 'Unit, Integration, or E2E tests' },
   { name: 'security', color: 'ee0701', description: 'Security, privacy, and encryption tasks' },
-  { name: 'performance', color: 'cc317c', description: 'Performance tuning and query optimization' },
+  {
+    name: 'performance',
+    color: 'cc317c',
+    description: 'Performance tuning and query optimization',
+  },
   { name: 'refactor', color: 'e6e6e6', description: 'Code refactoring without behavioral change' },
   { name: 'question', color: 'd876e3', description: 'Further information is requested' },
-  { name: 'high-priority', color: 'b60205', description: 'Critical path task required for current sprint' },
+  {
+    name: 'high-priority',
+    color: 'b60205',
+    description: 'Critical path task required for current sprint',
+  },
   { name: 'medium-priority', color: 'd93f0b', description: 'Normal priority task' },
   { name: 'low-priority', color: '0e8a16', description: 'Low priority task / nice to have' },
-  { name: 'blocked', color: '000000', description: 'Blocked by external dependency or another issue' },
+  {
+    name: 'blocked',
+    color: '000000',
+    description: 'Blocked by external dependency or another issue',
+  },
   { name: 'good-first-issue', color: '7057ff', description: 'Good for newcomers' },
   { name: 'help-wanted', color: '008672', description: 'Extra attention is needed' },
 ];
 
 // ─── 2. MILESTONES ───────────────────────────────────────────────────
 const milestoneTitles = [
-  { title: 'Sprint 1 - Foundation', description: 'Shared Package, Prisma DB Setup, Base API Architecture & Windows Agent Scaffolding' },
-  { title: 'Sprint 2 - Authentication', description: 'JWT Auth, Password Hashing, Role Middleware, Frontend Auth & Agent Auth Protocol' },
-  { title: 'Sprint 3 - Order Management', description: 'Order Creation API, File Upload Service, Customer Upload UI & Shop Order List' },
-  { title: 'Sprint 4 - Queue Engine', description: 'Queue Engine Service, Dynamic ETA, Concurrency Locking, & Local Queue Manager' },
-  { title: 'Sprint 5 - Windows Edge', description: 'Printer Discovery, Download Manager, Windows Print Spooler Engine, & Temp Cleanup' },
-  { title: 'Sprint 6 - Real-Time System', description: 'Socket.IO Gateway, Live Queue Broadcasting, Agent Heartbeat & Frontend Status Sync' },
-  { title: 'Sprint 7 - Integration', description: 'Razorpay Payments, Counter Payment Flow, Dashboard Analytics & End-to-End Testing' },
-  { title: 'Sprint 8 - MVP', description: 'Security Hardening, Auto File Purge Verification, Load Testing & Bug Fixes' },
+  {
+    title: 'Sprint 1 - Foundation',
+    description:
+      'Shared Package, Prisma DB Setup, Base API Architecture & Windows Agent Scaffolding',
+  },
+  {
+    title: 'Sprint 2 - Authentication',
+    description: 'JWT Auth, Password Hashing, Role Middleware, Frontend Auth & Agent Auth Protocol',
+  },
+  {
+    title: 'Sprint 3 - Order Management',
+    description: 'Order Creation API, File Upload Service, Customer Upload UI & Shop Order List',
+  },
+  {
+    title: 'Sprint 4 - Queue Engine',
+    description: 'Queue Engine Service, Dynamic ETA, Concurrency Locking, & Local Queue Manager',
+  },
+  {
+    title: 'Sprint 5 - Windows Edge',
+    description:
+      'Printer Discovery, Download Manager, Windows Print Spooler Engine, & Temp Cleanup',
+  },
+  {
+    title: 'Sprint 6 - Real-Time System',
+    description:
+      'Socket.IO Gateway, Live Queue Broadcasting, Agent Heartbeat & Frontend Status Sync',
+  },
+  {
+    title: 'Sprint 7 - Integration',
+    description:
+      'Razorpay Payments, Counter Payment Flow, Dashboard Analytics & End-to-End Testing',
+  },
+  {
+    title: 'Sprint 8 - MVP',
+    description: 'Security Hardening, Auto File Purge Verification, Load Testing & Bug Fixes',
+  },
   { title: 'Pilot Testing', description: 'Deployment to campus print shop for live testing' },
   { title: 'Version 1.0', description: 'Production Launch' },
 ];
@@ -114,7 +166,7 @@ Create the single source of truth shared package containing TypeScript interface
 - [ ] Export \`UserRole\`, \`OrderStatus\`, \`PaymentStatus\`, \`PaymentMethod\`, \`PrinterType\`, \`PrinterStatus\`, \`AgentStatus\`, \`AllowedMimeType\` enums.
 - [ ] Export TypeScript entities (\`Shop\`, \`User\`, \`Printer\`, \`Order\`, \`OrderFile\`, \`Payment\`, \`Transaction\`, \`Notification\`).
 - [ ] Export constants for API routes, rate limits, file upload constraints (50MB, \`.pdf\`, \`.png\`, \`.jpg\`), queue buffers (30s), and Socket.IO events.
-- [ ] Verify \`npm run build\` generates clean CJS/ESM declarations.`
+- [ ] Verify \`npm run build\` generates clean CJS/ESM declarations.`,
   },
   {
     title: 'Implement Shared Zod Validation Schemas',
@@ -134,7 +186,7 @@ Implement Zod validation schemas in \`@velox/shared\` for request validation acr
 - [ ] \`loginSchema\` (Email, Password).
 - [ ] \`createOrderSchema\` (Shop UUID, copies 1–100, color, doubleSided, paymentMethod).
 - [ ] \`fileUploadSchema\` (filename, allowed MIME types, max 50MB size).
-- [ ] \`paginationSchema\` & \`uuidParamSchema\`.`
+- [ ] \`paginationSchema\` & \`uuidParamSchema\`.`,
   },
   {
     title: 'Implement PostgreSQL Schema with Prisma ORM',
@@ -154,7 +206,7 @@ Define the relational database schema in \`backend/prisma/schema.prisma\` matchi
 - [ ] Configure UUID primary keys, default \`now()\` created_at, and updated_at timestamps on all tables.
 - [ ] Set up foreign key constraints and cascade rules per \`DATABASE.md\`.
 - [ ] Add indexes on \`orders.shop_id\`, \`orders.order_status\`, \`payments.transaction_id\`, \`users.email\`, \`printers.shop_id\`.
-- [ ] Create and verify initial Prisma migration script.`
+- [ ] Create and verify initial Prisma migration script.`,
   },
   {
     title: 'Backend Error Handling & Logging Middleware Setup',
@@ -174,7 +226,7 @@ Implement centralized operational error handling (\`AppError\`) and Pino structu
 - [ ] Derived errors: \`ValidationError\`, \`AuthenticationError\`, \`NotFoundError\`, \`QueueError\`, \`PaymentError\`.
 - [ ] Global error handler returning standard response: \`{ success: false, message, error: {} }\`.
 - [ ] Configure Pino logger with pretty printing in development and JSON in production.
-- [ ] Sanitize log output (never log passwords, tokens, or document contents).`
+- [ ] Sanitize log output (never log passwords, tokens, or document contents).`,
   },
   {
     title: 'Next.js Design System Shell & Theme Setup',
@@ -193,7 +245,7 @@ Implement the monochrome design system tokens, Geist/Inter fonts, Tailwind confi
 - [ ] Configure Tailwind CSS color tokens (Black #111111, White #FFFFFF, Neutral Grays 50–900).
 - [ ] Import Lucide Icons default configuration (20–24px, 2px stroke).
 - [ ] Set up root Next.js \`layout.tsx\` with Font providers and Toast notification provider.
-- [ ] Create reusable button variants (Primary, Secondary, Destructive) and Card components.`
+- [ ] Create reusable button variants (Primary, Secondary, Destructive) and Card components.`,
   },
   {
     title: '.NET 8 Windows Agent Solution Scaffolding',
@@ -212,7 +264,7 @@ Set up the .NET 8 console application architecture matching the folder structure
 - [ ] Create namespaces: Authentication, Connection, Queue, Download, Printer, Printing, Heartbeat, Configuration, Logging, Utilities.
 - [ ] Configure \`appsettings.json\` reader for Backend URL, Shop ID, Device ID, and Heartbeat interval (30s).
 - [ ] Set up Serilog for local file logging under \`%AppData%/Velox/Logs\`.
-- [ ] Verify clean build targeting .NET 8 runtime.`
+- [ ] Verify clean build targeting .NET 8 runtime.`,
   },
   {
     title: 'JWT Authentication & Password Hashing Service',
@@ -232,7 +284,7 @@ Implement backend authentication endpoints (\`/auth/register\`, \`/auth/login\`,
 - [ ] Generate 15-minute JWT Access Tokens containing \`userId\`, \`shopId\`, and \`role\`.
 - [ ] Implement \`POST /api/v1/auth/register\` and \`POST /api/v1/auth/login\`.
 - [ ] Return standardized response \`{ success: true, message, data: { token, user } }\`.
-- [ ] Write unit tests for Auth service and token verification.`
+- [ ] Write unit tests for Auth service and token verification.`,
   },
   {
     title: 'Authentication & Role Authorization Middleware',
@@ -250,7 +302,7 @@ Create Express middlewares to enforce Bearer token authentication and role permi
 ### Acceptance Criteria
 - [ ] \`authenticateJWT\` middleware to extract and verify Bearer token from Authorization header.
 - [ ] \`authorizeRoles(...roles)\` middleware to enforce required user role.
-- [ ] Return 401 Unauthorized for missing/invalid tokens and 403 Forbidden for role mismatch.`
+- [ ] Return 401 Unauthorized for missing/invalid tokens and 403 Forbidden for role mismatch.`,
   },
   {
     title: 'Frontend Auth Store & Login Screen',
@@ -269,7 +321,7 @@ Implement Zustand authentication store, login form with React Hook Form + Zod, a
 - [ ] \`useAuthStore\` managing \`user\`, \`token\`, \`isAuthenticated\`, \`login()\`, \`logout()\`.
 - [ ] Create \`/login\` page with input validation and inline error display.
 - [ ] Store token in local storage or secure cookie.
-- [ ] Redirect user to \`/admin\` (operator/owner) or \`/\` (customer) upon login.`
+- [ ] Redirect user to \`/admin\` (operator/owner) or \`/\` (customer) upon login.`,
   },
   {
     title: 'Windows Agent Authentication & Device Binding Protocol',
@@ -288,7 +340,7 @@ Implement device login and token storage in the Windows Agent service.
 - [ ] Send \`POST /api/v1/agent/login\` with \`shopId\` and \`deviceId\`.
 - [ ] Store received auth token securely in local config (\`%AppData%/Velox/config.json\`).
 - [ ] Implement token auto-refresh mechanism when token expires.
-- [ ] Handle offline authentication grace period with retry loop.`
+- [ ] Handle offline authentication grace period with retry loop.`,
   },
   {
     title: 'Shop Details & Statistics API',
@@ -306,7 +358,7 @@ Implement REST endpoints to retrieve shop details, printer configuration, and da
 ### Acceptance Criteria
 - [ ] \`GET /api/v1/shops/{shopId}\` returning shop name, QR code, printers, and estimated wait time.
 - [ ] \`GET /api/v1/shops/{shopId}/stats\` returning today's orders count, revenue, active queue length, completed count.
-- [ ] Validate \`shopId\` UUID parameter.`
+- [ ] Validate \`shopId\` UUID parameter.`,
   },
   {
     title: 'Order Creation API & Price Calculator',
@@ -326,7 +378,7 @@ Implement \`POST /api/v1/orders\` endpoint to record new print orders in Pending
 - [ ] Generate unique short human-readable \`orderCode\` (e.g., \`A102\`).
 - [ ] Calculate \`totalPrice\` based on copies, pages, color option, and double-sided selection.
 - [ ] Create record in \`orders\` table with status Pending.
-- [ ] Log Order Created event in \`order_events\`.`
+- [ ] Log Order Created event in \`order_events\`.`,
   },
   {
     title: 'Secure File Upload Service & Storage Controller',
@@ -346,7 +398,7 @@ Implement \`POST /api/v1/orders/{id}/upload\` multipart endpoint for uploading P
 - [ ] Reject all executable, script, or archive files with 422 Validation Error.
 - [ ] Extract PDF page count automatically using a backend PDF parser.
 - [ ] Save record in \`order_files\` with \`delete_after\` timestamp.
-- [ ] Update \`orders.total_pages\` and recalculate final order price.`
+- [ ] Update \`orders.total_pages\` and recalculate final order price.`,
   },
   {
     title: 'Customer QR Landing Page & Print Config Flow',
@@ -366,7 +418,7 @@ Build the mobile-first customer flow for scanning shop QR, selecting documents, 
 - [ ] Drag-and-drop / Browse document upload with progress bar.
 - [ ] Print settings form: Copies stepper, Color vs. B&W toggle, Single vs. Double-sided toggle.
 - [ ] Live price preview calculator updating instantly on setting change.
-- [ ] Framer Motion smooth step transitions (150–250ms).`
+- [ ] Framer Motion smooth step transitions (150–250ms).`,
   },
   {
     title: 'Shop Dashboard Live Order List Component',
@@ -385,7 +437,7 @@ Build the desktop-first operator dashboard order management table.
 - [ ] Route \`/admin/orders\` displaying active and pending order rows.
 - [ ] Displays Order Code, Customer Name, Pages, Copies, Type (B&W/Color), Status badge, Action buttons.
 - [ ] Filter tabs: All, Waiting, Printing, Completed, Cancelled.
-- [ ] Skeleton loaders for loading state.`
+- [ ] Skeleton loaders for loading state.`,
   },
   {
     title: 'Core Queue Engine Service & Dynamic Position Calculation',
@@ -404,7 +456,7 @@ Implement the single source of truth Queue Engine service per \`QUEUE_ENGINE.md\
 - [ ] Order transitions to Waiting state upon successful payment.
 - [ ] Implement dynamic queue position formula: \`COUNT(orders ahead with status IN (Waiting, Assigned, Downloading, Printing) AND created_at < currentOrder.created_at)\`.
 - [ ] Position is NEVER stored as a static column; always calculated dynamically.
-- [ ] Implement atomic database transactions for state transitions to prevent race conditions.`
+- [ ] Implement atomic database transactions for state transitions to prevent race conditions.`,
   },
   {
     title: 'Dynamic ETA & Printer Allocation Algorithm',
@@ -422,7 +474,7 @@ Implement the printer matching rules and dynamic ETA calculation formula.
 ### Acceptance Criteria
 - [ ] Match job specs to printers: Color jobs -> Color Printer; B&W jobs -> B&W Printer; Pages > threshold -> Bulk Printer.
 - [ ] Implement ETA formula: \`(Total Pages Ahead / Printer PPM) + 30s Buffer\`.
-- [ ] Return \`queuePosition\`, \`peopleAhead\`, and \`estimatedTime\` via \`GET /api/v1/orders/{id}/queue\`.`
+- [ ] Return \`queuePosition\`, \`peopleAhead\`, and \`estimatedTime\` via \`GET /api/v1/orders/{id}/queue\`.`,
   },
   {
     title: 'Order Cancellation & Retry Controller Logic',
@@ -440,7 +492,7 @@ Implement cancellation validation rules and automated retry logic for failed job
 ### Acceptance Criteria
 - [ ] \`PATCH /api/v1/orders/{id}/cancel\`: Allow cancellation ONLY if status is Pending or Waiting.
 - [ ] Reject cancellation with 400 Bad Request if printing has already started (prevents paper wastage).
-- [ ] Support up to 3 automatic retries for failed print jobs before marking Failed.`
+- [ ] Support up to 3 automatic retries for failed print jobs before marking Failed.`,
   },
   {
     title: 'Windows Agent Queue Manager & Persistence',
@@ -459,7 +511,7 @@ Implement the local queue manager inside the Windows Agent to receive, order, an
 - [ ] Receive assigned job payloads from cloud backend.
 - [ ] Maintain in-memory local queue sorted by assignment order.
 - [ ] Persist pending local queue to local SQLite / JSON storage for crash recovery.
-- [ ] Ignore duplicate job assignments using unique \`orderId\` validation.`
+- [ ] Ignore duplicate job assignments using unique \`orderId\` validation.`,
   },
   {
     title: 'Windows Agent Printer Discovery Engine',
@@ -477,7 +529,7 @@ Implement local printer detection using Windows Management Instrumentation (WMI)
 ### Acceptance Criteria
 - [ ] On startup, enumerate all locally connected and network printers.
 - [ ] Collect Printer Name, Status (Online/Offline/Paper Empty), Color Capability, and Default Paper Sizes.
-- [ ] Sync discovered printer capability list with cloud backend via \`POST /api/v1/agent/printers\`.`
+- [ ] Sync discovered printer capability list with cloud backend via \`POST /api/v1/agent/printers\`.`,
   },
   {
     title: 'Secure File Download Manager with Checksum Verification',
@@ -496,7 +548,7 @@ Build the Agent Download Manager to retrieve PDF/Image files from cloud backend 
 - [ ] Download document to \`%AppData%/Velox/Temp/\`.
 - [ ] Validate file SHA-256 checksum after download completes.
 - [ ] Support automatic download retries for interrupted connections.
-- [ ] Transition job state to Downloading during fetch and notify backend.`
+- [ ] Transition job state to Downloading during fetch and notify backend.`,
   },
   {
     title: 'Windows Silent Print Engine Integration',
@@ -515,7 +567,7 @@ Implement automated silent printing using Windows Print Spooler APIs without dis
 - [ ] Send document directly to target printer spooler using specific job settings (Copies, Duplex mode, Color mode).
 - [ ] Monitor print job progress until spooling finishes.
 - [ ] Execute fully automatically without requiring operator intervention.
-- [ ] Update backend job status to Printing upon start and Completed upon finish.`
+- [ ] Update backend job status to Printing upon start and Completed upon finish.`,
   },
   {
     title: 'Agent Automatic Local Cleanup Service',
@@ -533,7 +585,7 @@ Implement background cleanup worker to delete printed files and purge temporary 
 ### Acceptance Criteria
 - [ ] Delete temporary file from \`%AppData%/Velox/Temp/\` immediately after print job completion.
 - [ ] Periodically clean failed or aborted temporary files older than 1 hour.
-- [ ] Verify zero residual customer files remain on local disk after job completion.`
+- [ ] Verify zero residual customer files remain on local disk after job completion.`,
   },
   {
     title: 'Socket.IO Gateway & Multi-Namespace Server Setup',
@@ -551,7 +603,7 @@ Initialize Socket.IO server attached to Express with 3 distinct namespaces per \
 ### Acceptance Criteria
 - [ ] Create \`/customer\`, \`/admin\`, and \`/agent\` Socket.IO namespaces.
 - [ ] Enforce JWT authentication on socket connections.
-- [ ] Manage active socket room subscriptions (e.g., customer joining \`order:{orderId}\` room; admin joining \`shop:{shopId}\` room).`
+- [ ] Manage active socket room subscriptions (e.g., customer joining \`order:{orderId}\` room; admin joining \`shop:{shopId}\` room).`,
   },
   {
     title: 'Real-Time Queue & Order Status Event Broadcaster',
@@ -569,7 +621,7 @@ Broadcast real-time order lifecycle events across customer, admin, and agent soc
 ### Acceptance Criteria
 - [ ] Emit \`order.created\`, \`queue.updated\`, \`printing.started\`, \`printing.completed\`, \`order.ready\` to \`/customer\` namespace.
 - [ ] Emit \`new.order\`, \`queue.changed\`, \`printer.offline\` to \`/admin\` namespace.
-- [ ] Broadcast latency must be < 500ms.`
+- [ ] Broadcast latency must be < 500ms.`,
   },
   {
     title: 'Agent Heartbeat Service & Offline Handler',
@@ -588,7 +640,7 @@ Implement the 30-second heartbeat loop between Windows Agent and Backend per \`W
 - [ ] Agent sends heartbeat payload every 30s: \`{ status, version, printerStatus, queueLength, lastActivity }\`.
 - [ ] Backend updates printer health status.
 - [ ] If agent misses 3 consecutive heartbeats (90s), mark shop agent as Offline and pause online queue assignment.
-- [ ] Agent automatically reconnects and resumes queue when network returns.`
+- [ ] Agent automatically reconnects and resumes queue when network returns.`,
   },
   {
     title: 'Customer Live Queue & Status Tracker UI Component',
@@ -607,7 +659,7 @@ Build real-time customer status screen with live queue position counter, estimat
 - [ ] Connect to \`/customer\` socket namespace and join \`order:{orderId}\` room.
 - [ ] Dynamically update Queue Position and Estimated Time without full page refresh.
 - [ ] Animated status progress steps using Framer Motion (Waiting -> Printing -> Ready for Pickup).
-- [ ] Trigger audio notification / toast alert when order status becomes Completed.`
+- [ ] Trigger audio notification / toast alert when order status becomes Completed.`,
   },
   {
     title: 'Razorpay Online Payment Gateway Integration',
@@ -626,7 +678,7 @@ Integrate Razorpay payment gateway for UPI, Card, and Netbanking customer paymen
 - [ ] \`POST /api/v1/payments/create\`: Create Razorpay payment order session.
 - [ ] \`POST /api/v1/payments/verify\`: Verify Razorpay signature (\`razorpay_order_id\`, \`razorpay_payment_id\`, \`razorpay_signature\`).
 - [ ] On successful verification, record entry in \`payments\` and \`transactions\` tables.
-- [ ] Trigger Queue Engine to transition order status from Pending to Waiting.`
+- [ ] Trigger Queue Engine to transition order status from Pending to Waiting.`,
   },
   {
     title: 'Shop Operator Counter Payment Flow UI',
@@ -644,7 +696,7 @@ Implement counter payment modal on the shop dashboard to allow operators to manu
 ### Acceptance Criteria
 - [ ] Modal trigger on order row: "Mark Counter Paid".
 - [ ] Call \`POST /api/v1/payments/counter\` (Operator role required).
-- [ ] Update order status in real time across dashboard and customer view.`
+- [ ] Update order status in real time across dashboard and customer view.`,
   },
   {
     title: 'Shop Printer Management Dashboard Component',
@@ -662,7 +714,7 @@ Build printer monitoring panel on admin dashboard showing connected printers, st
 ### Acceptance Criteria
 - [ ] Route \`/admin/printers\` listing all discovered shop printers.
 - [ ] Displays live status (Online, Offline, Printing, Paused).
-- [ ] Toggle switch to manually pause or resume a printer.`
+- [ ] Toggle switch to manually pause or resume a printer.`,
   },
   {
     title: 'Server-Side Automatic Document Cleanup Cron Job',
@@ -681,7 +733,7 @@ Implement scheduled worker job to automatically delete temporary files from back
 - [ ] Periodically query \`order_files\` where \`delete_after <= NOW()\` or order status is Completed/Collected.
 - [ ] Permanently delete files from server disk / S3 bucket.
 - [ ] Log file deletion audit event in \`order_events\`.
-- [ ] Verify zero residual files remain.`
+- [ ] Verify zero residual files remain.`,
   },
   {
     title: 'End-to-End MVP Integration & Security Audit',
@@ -700,8 +752,8 @@ Perform full end-to-end testing across customer QR scan, upload, payment, queue 
 - [ ] Complete customer order printed in < 1 minute without manual operator intervention.
 - [ ] Verify zero console errors, zero uncaught exceptions.
 - [ ] Security audit: Validate CORS, rate limits, non-persistent file storage, and password hashes.
-- [ ] Verify 99.9% queue assignment success rate.`
-  }
+- [ ] Verify 99.9% queue assignment success rate.`,
+  },
 ];
 
 // ─── MAIN EXECUTION ──────────────────────────────────────────────────
@@ -757,7 +809,7 @@ async function main() {
   for (let i = 0; i < issues.length; i++) {
     const issue = issues[i];
     const milestoneNumber = milestoneMap.get(issue.milestoneName);
-    
+
     const payload = {
       title: issue.title,
       body: issue.body,

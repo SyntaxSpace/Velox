@@ -22,11 +22,7 @@ export const RATE_LIMITS = {
 /** File upload constraints per PROJECT_RULES.md and SECURITY.md */
 export const FILE_UPLOAD = {
   ALLOWED_EXTENSIONS: ['.pdf', '.png', '.jpg', '.jpeg'] as const,
-  ALLOWED_MIME_TYPES: [
-    'application/pdf',
-    'image/png',
-    'image/jpeg',
-  ] as const,
+  ALLOWED_MIME_TYPES: ['application/pdf', 'image/png', 'image/jpeg'] as const,
   MAX_SIZE_MB: 50,
   MAX_SIZE_BYTES: 50 * 1024 * 1024,
   MIN_COPIES: 1,
