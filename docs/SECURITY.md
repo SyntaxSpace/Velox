@@ -513,21 +513,31 @@ If a security incident occurs:
 
 ---
 
-# Future Security Enhancements
+# Day 8: Role Hierarchy, Provisioning & Tenant Security
 
-OAuth
+## Role Hierarchy & Authorization
 
-MFA
+1. **Velox Admin (`ADMIN`)**: Full platform authority across all partner, shop, and agent resources.
+2. **Velox Partner (`PARTNER`)**: Central company operator. Authorized to view all network stores, aggregate company metrics, and provision shops with shop owner accounts.
+3. **Shop Owner (`SHOP_OWNER`, `OWNER`)**: Counter owner. Strictly restricted to their single assigned shop (`shop.ownerId === req.user.userId`). Cannot create shops or access partner metrics.
+4. **Shop Operator (`OPERATOR`)**: Store staff assisting with local print job processing.
+5. **Customer (Zero-Login Guest)**: Anonymous customer accessing the store via counter QR code. Issues 24h short-lived guest session tokens without registration.
 
-Device Trust
+## Anti-Self-Provisioning Enforcement
 
-File Virus Scanning
+- Public registration endpoint (`/api/v1/auth/register`) strictly rejects any registration request carrying `SHOP_OWNER`, `OWNER`, `PARTNER`, or `ADMIN` roles.
+- Shop owner accounts are generated exclusively by authenticated Partners via atomic provisioning (`POST /api/v1/partner/shops`).
 
-Object Storage Encryption Keys
+## Temporary Password Enforcement (`firstLogin: true`)
 
-Security Dashboard
+- Provisioned shop owner accounts are assigned random temporary passwords and flagged with `firstLogin: true`.
+- On initial authentication, the shop owner is prompted to update their credentials via `/api/v1/auth/first-login-change-password` before full store access is unlocked.
 
-SIEM Integration
+## Windows Edge Security
+
+- Agent authentication uses cryptographically secure device keys.
+- Streamed files are validated against SHA-256 checksums before entering the Windows Spooler.
+- Zero-residual cleanup removes and shreds all local files immediately after printing or on error.
 
 ---
 

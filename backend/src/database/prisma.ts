@@ -10,12 +10,20 @@ export const prisma = new PrismaClient({
   ],
 });
 
+export let isDbOffline = false;
+export function setDbOffline(offline: boolean) {
+  isDbOffline = offline;
+}
+
 prisma.$on('query', (e) => {
   logger.debug(`Query: ${e.query}`);
 });
 
 prisma.$on('error', (e) => {
   logger.error(`Prisma Error: ${e.message}`);
+  if (e.message.includes("Can't reach database server")) {
+    isDbOffline = true;
+  }
 });
 
 prisma.$on('info', (e) => {

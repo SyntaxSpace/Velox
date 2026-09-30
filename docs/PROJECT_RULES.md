@@ -534,6 +534,50 @@ A feature is complete only if:
 
 ---
 
+# Multi-Shop & Guest Customer Architectural Rules (Day 7)
+
+## Zero-Login Customer Experience
+
+- Customers scanning counter QR codes MUST NEVER be forced to register or login.
+- Customer sessions use short-lived/24h anonymous JWTs containing `guestSessionId` and `shopId`.
+- No customer password or email is ever required to upload, pay, or track an order.
+- Authentication (email/password with Argon2id) is strictly reserved for Shop Owners, Operators, and Admins.
+
+## Strict Multi-Tenant Isolation
+
+- Every shop is isolated by `publicShopId` and `ownerId`.
+- Owner A can NEVER view, modify, or list orders, settings, or printers for Owner B's shop.
+- Guest customer orders are strictly private: Guest A can never view or modify Guest B's orders or orders from another shop.
+
+---
+
+# Central Partner Platform & Shop Provisioning Rules (Day 8)
+
+## Central Platform Model (Not an Open Marketplace)
+
+- Velox Company is the central platform owner.
+- Velox is **NOT a self-service marketplace** where shop owners register themselves.
+- Only authorized **Velox Partner / Admin users** (`role: 'PARTNER' | 'ADMIN'`) can create shops, provision shop owner accounts, view all network stores, and inspect company-wide statistics.
+
+## Public Registration Restrictions
+
+- Public `/auth/register` strictly rejects self-assignment of `SHOP_OWNER`, `OWNER`, `PARTNER`, or `ADMIN` roles with `403 Forbidden`.
+- Shop owner accounts are created exclusively via atomic provisioning (`POST /api/v1/partner/shops`).
+
+## Provisioned Shop Owner Lifecycle & Scope
+
+- Shop owners receive onboarding credentials directly from their regional Velox Partner.
+- Every provisioned shop owner account has `firstLogin: true` set by default.
+- On first login, shop owners must update their temporary password via `POST /api/v1/auth/first-login-change-password` before continuing.
+- Shop owners are strictly scoped to their single assigned store (`shop.ownerId === req.user.userId`). They can never create new shops, see other shops, or access partner dashboards.
+
+## Shop-Specific Dynamic Pricing
+
+- Pricing is configured per-shop (`pricePerPageBW`, `pricePerPageColor`, `duplexDiscount`).
+- Order cost calculations must dynamically fetch the target shop's configured rates rather than using hardcoded global rates.
+
+---
+
 # Final Principle
 
 Velox is infrastructure.

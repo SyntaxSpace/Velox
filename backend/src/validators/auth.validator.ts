@@ -1,8 +1,11 @@
 import { z } from 'zod';
+import { UserRole } from '@prisma/client';
 
 export const registerValidator = z.object({
   name: z.string().min(1, 'Name is required').max(100),
   email: z.string().email('Invalid email address'),
+  phone: z.string().max(20).optional(),
+  role: z.nativeEnum(UserRole).optional(),
   password: z.string().min(8, 'Password must be at least 8 characters'),
 });
 

@@ -9,8 +9,10 @@
 export enum UserRole {
   CUSTOMER = 'CUSTOMER',
   OPERATOR = 'OPERATOR',
-  OWNER = 'OWNER',
+  SHOP_OWNER = 'SHOP_OWNER',
+  PARTNER = 'PARTNER',
   ADMIN = 'ADMIN',
+  OWNER = 'SHOP_OWNER',
 }
 
 /** Order lifecycle states per QUEUE_ENGINE.md */

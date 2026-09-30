@@ -45,4 +45,16 @@ router.patch(
   },
 );
 
+// POST /dev/orders/:orderId/assign - Assign order to printer and dispatch to agent
+router.post('/orders/:orderId/assign', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { orderId } = req.params;
+    const { printerName } = req.body as { printerName?: string };
+    const result = await queueService.assignOrder(orderId, printerName);
+    sendSuccess(res, result, 'Order assigned and dispatched to agent');
+  } catch (error) {
+    next(error);
+  }
+});
+
 export default router;

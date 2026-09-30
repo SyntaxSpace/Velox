@@ -5,6 +5,8 @@ interface User {
   name: string;
   email: string;
   role: string;
+  shopId?: string | null;
+  firstLogin?: boolean;
 }
 
 interface AuthState {

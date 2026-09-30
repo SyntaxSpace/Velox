@@ -11,7 +11,26 @@ import { AppError } from '../utils/app-error';
 import { logger } from '../config/logger';
 
 export class AuthService {
-  async register(data: { name: string; email: string; password: string }) {
+  async register(data: {
+    name: string;
+    email: string;
+    password: string;
+    phone?: string;
+    role?: UserRole;
+  }) {
+    if (data.role === UserRole.ADMIN) {
+      throw AppError.forbidden('Cannot self-assign ADMIN role');
+    }
+    if (
+      data.role === UserRole.PARTNER ||
+      data.role === UserRole.SHOP_OWNER ||
+      (data.role as any) === 'OWNER'
+    ) {
+      throw AppError.forbidden(
+        'Public shop owner registration is disabled. Accounts must be provisioned by a Velox Partner.',
+      );
+    }
+
     const existing = await authRepository.findByEmail(data.email);
     if (existing) {
       throw AppError.conflict('Email already registered');
@@ -27,21 +46,24 @@ export class AuthService {
     const user = await authRepository.create({
       name: data.name,
       email: data.email,
+      phone: data.phone,
       passwordHash,
-      role: UserRole.CUSTOMER,
+      role: data.role ?? UserRole.CUSTOMER,
+      firstLogin: false,
     });
 
     const payload: JwtPayload = { userId: user.id, email: user.email, role: user.role };
     const accessToken = generateAccessToken(payload);
     const refreshToken = generateRefreshToken(payload);
 
-    logger.info({ userId: user.id }, 'User registered');
+    logger.info({ userId: user.id, role: user.role }, 'User registered');
 
     return {
       user: {
         id: user.id,
         name: user.name,
         email: user.email,
+        phone: user.phone,
         role: user.role,
       },
       accessToken,
@@ -60,11 +82,17 @@ export class AuthService {
       throw AppError.unauthorized('Invalid email or password');
     }
 
-    const payload: JwtPayload = { userId: user.id, email: user.email, role: user.role };
+    const payload: JwtPayload = {
+      userId: user.id,
+      email: user.email,
+      role: user.role,
+      shopId: user.shopId || undefined,
+      firstLogin: (user as any).firstLogin ?? false,
+    };
     const accessToken = generateAccessToken(payload);
     const refreshToken = generateRefreshToken(payload);
 
-    logger.info({ userId: user.id }, 'User logged in');
+    logger.info({ userId: user.id, role: user.role }, 'User logged in');
 
     return {
       user: {
@@ -72,6 +100,59 @@ export class AuthService {
         name: user.name,
         email: user.email,
         role: user.role,
+        shopId: user.shopId,
+        firstLogin: (user as any).firstLogin ?? false,
+      },
+      accessToken,
+      refreshToken,
+    };
+  }
+
+  async firstLoginChangePassword(
+    userId: string,
+    data: { temporaryPassword?: string; newPassword: string },
+  ) {
+    const user = await authRepository.findById(userId);
+    if (!user) {
+      throw AppError.notFound('User not found');
+    }
+
+    if (data.temporaryPassword) {
+      const matches = await argon2.verify(user.passwordHash, data.temporaryPassword);
+      if (!matches) {
+        throw AppError.unauthorized('Temporary password does not match');
+      }
+    }
+
+    const newHash = await argon2.hash(data.newPassword, {
+      type: argon2.argon2id,
+      memoryCost: 65536,
+      timeCost: 3,
+      parallelism: 4,
+    });
+
+    const updated = await authRepository.updatePasswordAndFirstLogin(userId, newHash, false);
+
+    const payload: JwtPayload = {
+      userId: updated.id,
+      email: updated.email,
+      role: updated.role,
+      shopId: updated.shopId || undefined,
+      firstLogin: false,
+    };
+    const accessToken = generateAccessToken(payload);
+    const refreshToken = generateRefreshToken(payload);
+
+    logger.info({ userId: updated.id }, 'User updated password on first login');
+
+    return {
+      user: {
+        id: updated.id,
+        name: updated.name,
+        email: updated.email,
+        role: updated.role,
+        shopId: updated.shopId,
+        firstLogin: false,
       },
       accessToken,
       refreshToken,

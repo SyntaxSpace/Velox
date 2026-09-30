@@ -7,6 +7,25 @@ import { agentService } from '../services/agent.service';
 import { queueService } from '../services/queue.service';
 import { OrderStatus } from '@prisma/client';
 
+let globalIo: SocketIOServer | null = null;
+let globalAgentNamespace: any = null;
+
+export function emitToAgentShop(shopId: string, event: string, data: any): void {
+  if (globalAgentNamespace) {
+    if (shopId) {
+      globalAgentNamespace.to(`shop:${shopId}`).emit(event, data);
+    } else {
+      globalAgentNamespace.to('all-dev-shops').emit(event, data);
+    }
+  }
+}
+
+export function emitToClientShop(shopId: string, event: string, data: any): void {
+  if (globalIo) {
+    globalIo.to(`shop:${shopId}`).emit(event, data);
+  }
+}
+
 export function initializeSocket(httpServer: HttpServer): SocketIOServer {
   const io = new SocketIOServer(httpServer, {
     cors: {
@@ -15,8 +34,10 @@ export function initializeSocket(httpServer: HttpServer): SocketIOServer {
     },
   });
 
+  globalIo = io;
   // Agent namespace
   const agentNamespace = io.of('/agent');
+  globalAgentNamespace = agentNamespace;
 
   // Authenticate socket connections on /agent namespace
   agentNamespace.use((socket, next) => {
@@ -79,6 +100,9 @@ export function initializeSocket(httpServer: HttpServer): SocketIOServer {
           // Join shop room and dedicated device room
           socket.join(`shop:${shopId}`);
           socket.join(`device:${deviceId}`);
+          if (process.env.NODE_ENV === 'development' || !process.env.DATABASE_URL) {
+            socket.join('all-dev-shops');
+          }
 
           // Update device heartbeat in DB
           await agentService.recordHeartbeat(shopId, deviceId).catch(() => {});
@@ -216,4 +240,8 @@ export function initializeSocket(httpServer: HttpServer): SocketIOServer {
 
   logger.info('Socket.IO initialized with Agent and Default gateways');
   return io;
+}
+
+export function isAgentGatewayRunning(): boolean {
+  return globalAgentNamespace !== null;
 }

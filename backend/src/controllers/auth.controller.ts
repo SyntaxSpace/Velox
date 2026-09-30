@@ -47,6 +47,18 @@ export class AuthController {
       next(error);
     }
   }
+
+  async firstLoginChangePassword(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      if (!req.user || !req.user.userId) {
+        throw new Error('Authentication required');
+      }
+      const result = await authService.firstLoginChangePassword(req.user.userId, req.body);
+      sendSuccess(res, result, 'Password changed successfully');
+    } catch (error) {
+      next(error);
+    }
+  }
 }
 
 export const authController = new AuthController();

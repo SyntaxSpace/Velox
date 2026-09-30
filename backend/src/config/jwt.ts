@@ -7,6 +7,9 @@ export interface JwtPayload {
   role: string;
   shopId?: string;
   deviceId?: string;
+  guestSessionId?: string;
+  isGuest?: boolean;
+  firstLogin?: boolean;
 }
 
 export function generateAccessToken(payload: JwtPayload): string {
@@ -15,6 +18,19 @@ export function generateAccessToken(payload: JwtPayload): string {
 
 export function generateRefreshToken(payload: JwtPayload): string {
   return jwt.sign(payload, env.JWT_REFRESH_SECRET, { expiresIn: '7d' });
+}
+
+export function generateGuestToken(payload: { guestSessionId: string; shopId: string }): string {
+  return jwt.sign(
+    {
+      guestSessionId: payload.guestSessionId,
+      shopId: payload.shopId,
+      role: 'CUSTOMER',
+      isGuest: true,
+    },
+    env.JWT_SECRET,
+    { expiresIn: '24h' },
+  );
 }
 
 export function generateAgentToken(payload: {
