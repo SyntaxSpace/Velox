@@ -17,5 +17,8 @@ router.post('/refresh', validate(refreshValidator), (req, res, next) =>
 );
 router.post('/logout', authenticate, (req, res) => authController.logout(req, res));
 router.get('/me', authenticate, (req, res, next) => authController.me(req, res, next));
+router.post('/first-login-change-password', authenticate, (req, res, next) =>
+  authController.firstLoginChangePassword(req, res, next),
+);
 
 export default router;

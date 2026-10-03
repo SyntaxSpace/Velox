@@ -104,47 +104,56 @@ Stores every registered shop.
 
 Fields
 
-| Field | Type |
-|--------|------|
-| id | UUID |
-| name | TEXT |
-| qr_code | TEXT |
-| address | TEXT |
-| phone | TEXT |
-| email | TEXT |
-| status | TEXT |
-| created_at | TIMESTAMP |
-| updated_at | TIMESTAMP |
+| Field                 | Type                                   |
+| --------------------- | -------------------------------------- |
+| id                    | UUID                                   |
+| public_shop_id        | TEXT UNIQUE (Indexed slug)             |
+| owner_id              | UUID (FK -> users.id)                  |
+| name                  | TEXT                                   |
+| qr_code               | TEXT                                   |
+| address               | TEXT                                   |
+| city                  | TEXT                                   |
+| pincode               | TEXT                                   |
+| phone                 | TEXT                                   |
+| email                 | TEXT                                   |
+| operating_hours       | TEXT                                   |
+| status                | TEXT (ACTIVE, INACTIVE, SUSPENDED)     |
+| created_by_partner_id | UUID (FK -> users.id, Partner creator) |
+| price_per_page_bw     | DECIMAL(10,2) DEFAULT 2.00             |
+| price_per_page_color  | DECIMAL(10,2) DEFAULT 10.00            |
+| duplex_discount       | DECIMAL(10,2) DEFAULT 0.00             |
+| created_at            | TIMESTAMP                              |
+| updated_at            | TIMESTAMP                              |
 
 ---
 
 # Table: users
 
-Stores customers and operators.
+Stores platform partners, provisioned shop owners, operators, and customers.
 
 Fields
 
-| Field | Type |
-|--------|------|
-| id | UUID |
-| shop_id | UUID |
-| name | TEXT |
-| email | TEXT |
-| phone | TEXT |
-| role | TEXT |
-| password_hash | TEXT |
-| created_at | TIMESTAMP |
-| updated_at | TIMESTAMP |
+| Field         | Type                                                           |
+| ------------- | -------------------------------------------------------------- |
+| id            | UUID                                                           |
+| shop_id       | UUID                                                           |
+| name          | TEXT                                                           |
+| email         | TEXT (UNIQUE)                                                  |
+| phone         | TEXT                                                           |
+| role          | ENUM (PARTNER, SHOP_OWNER, OWNER, OPERATOR, CUSTOMER, ADMIN)   |
+| password_hash | TEXT                                                           |
+| first_login   | BOOLEAN DEFAULT false (Enforces password reset on first login) |
+| created_at    | TIMESTAMP                                                      |
+| updated_at    | TIMESTAMP                                                      |
 
-Roles
+Roles (Day 8 Hierarchy)
 
-Customer
-
-Operator
-
-Owner
-
-Admin
+• PARTNER (Authorized Velox Company Partner; provisions shops and owners)
+• SHOP_OWNER (Assigned store owner; strictly scoped to their single shop)
+• OWNER (Legacy alias for SHOP_OWNER)
+• OPERATOR (Shop terminal operator)
+• CUSTOMER (Registered customer)
+• ADMIN (Velox Platform Administrator)
 
 ---
 
@@ -152,16 +161,16 @@ Admin
 
 Fields
 
-| Field | Type |
-|--------|------|
-| id | UUID |
-| shop_id | UUID |
-| name | TEXT |
-| printer_type | TEXT |
-| status | TEXT |
-| ip_address | TEXT |
-| pages_per_minute | INTEGER |
-| created_at | TIMESTAMP |
+| Field            | Type      |
+| ---------------- | --------- |
+| id               | UUID      |
+| shop_id          | UUID      |
+| name             | TEXT      |
+| printer_type     | TEXT      |
+| status           | TEXT      |
+| ip_address       | TEXT      |
+| pages_per_minute | INTEGER   |
+| created_at       | TIMESTAMP |
 
 Printer Types
 
@@ -189,20 +198,21 @@ Core table.
 
 Fields
 
-| Field | Type |
-|--------|------|
-| id | UUID |
-| order_code | TEXT |
-| user_id | UUID |
-| shop_id | UUID |
-| printer_id | UUID |
-| queue_position | INTEGER |
-| total_pages | INTEGER |
-| total_price | DECIMAL |
-| payment_status | TEXT |
-| order_status | TEXT |
-| estimated_time | INTEGER |
-| created_at | TIMESTAMP |
+| Field            | Type                                            |
+| ---------------- | ----------------------------------------------- |
+| id               | UUID                                            |
+| order_code       | TEXT                                            |
+| user_id          | UUID (Nullable, optional for guest customers)   |
+| guest_session_id | TEXT (Nullable, indexed for anonymous checkout) |
+| shop_id          | UUID (FK -> shops.id)                           |
+| printer_id       | UUID (Nullable)                                 |
+| queue_position   | INTEGER                                         |
+| total_pages      | INTEGER                                         |
+| total_price      | DECIMAL                                         |
+| payment_status   | TEXT                                            |
+| order_status     | TEXT                                            |
+| estimated_time   | INTEGER                                         |
+| created_at       | TIMESTAMP                                       |
 
 Order Status
 
@@ -228,15 +238,15 @@ Deleted
 
 Fields
 
-| Field | Type |
-|--------|------|
-| id | UUID |
-| order_id | UUID |
-| filename | TEXT |
-| file_url | TEXT |
-| page_count | INTEGER |
-| size | BIGINT |
-| mime_type | TEXT |
+| Field        | Type      |
+| ------------ | --------- |
+| id           | UUID      |
+| order_id     | UUID      |
+| filename     | TEXT      |
+| file_url     | TEXT      |
+| page_count   | INTEGER   |
+| size         | BIGINT    |
+| mime_type    | TEXT      |
 | delete_after | TIMESTAMP |
 
 Files automatically removed after printing.
@@ -247,15 +257,15 @@ Files automatically removed after printing.
 
 Fields
 
-| Field | Type |
-|--------|------|
-| id | UUID |
-| order_id | UUID |
-| method | TEXT |
-| amount | DECIMAL |
-| transaction_id | TEXT |
-| status | TEXT |
-| created_at | TIMESTAMP |
+| Field          | Type      |
+| -------------- | --------- |
+| id             | UUID      |
+| order_id       | UUID      |
+| method         | TEXT      |
+| amount         | DECIMAL   |
+| transaction_id | TEXT      |
+| status         | TEXT      |
+| created_at     | TIMESTAMP |
 
 Methods
 
@@ -283,14 +293,14 @@ Stores financial history.
 
 Fields
 
-| Field | Type |
-|--------|------|
-| id | UUID |
-| shop_id | UUID |
-| order_id | UUID |
-| amount | DECIMAL |
-| payment_method | TEXT |
-| created_at | TIMESTAMP |
+| Field          | Type      |
+| -------------- | --------- |
+| id             | UUID      |
+| shop_id        | UUID      |
+| order_id       | UUID      |
+| amount         | DECIMAL   |
+| payment_method | TEXT      |
+| created_at     | TIMESTAMP |
 
 ---
 
@@ -298,13 +308,13 @@ Fields
 
 Fields
 
-| Field | Type |
-|--------|------|
-| id | UUID |
-| user_id | UUID |
-| title | TEXT |
-| message | TEXT |
-| read | BOOLEAN |
+| Field      | Type      |
+| ---------- | --------- |
+| id         | UUID      |
+| user_id    | UUID      |
+| title      | TEXT      |
+| message    | TEXT      |
+| read       | BOOLEAN   |
 | created_at | TIMESTAMP |
 
 ---
@@ -335,11 +345,11 @@ Collected
 
 Fields
 
-| Field | Type |
-|--------|------|
-| id | UUID |
-| order_id | UUID |
-| event | TEXT |
+| Field      | Type      |
+| ---------- | --------- |
+| id         | UUID      |
+| order_id   | UUID      |
+| event      | TEXT      |
 | created_at | TIMESTAMP |
 
 ---

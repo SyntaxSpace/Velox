@@ -132,9 +132,9 @@ Request
 
 ```json
 {
-  "name":"",
-  "email":"",
-  "password":""
+  "name": "",
+  "email": "",
+  "password": ""
 }
 ```
 
@@ -168,7 +168,54 @@ POST
 
 ---
 
-# Shop APIs
+# Shop & Multi-Tenant APIs
+
+## Create Shop (Owner/Admin)
+
+POST
+
+/shops
+
+Request
+
+```json
+{
+  "name": "Apex Xerox & Digital Prints",
+  "phone": "9876543210",
+  "email": "shop@example.com",
+  "address": "Shop #4, Student Complex",
+  "city": "Bengaluru",
+  "pincode": "560001",
+  "operatingHours": "9:00 AM - 9:00 PM"
+}
+```
+
+Response
+
+```json
+{
+  "success": true,
+  "data": {
+    "id": "uuid",
+    "publicShopId": "shop_apex_prints",
+    "name": "Apex Xerox & Digital Prints",
+    "status": "ACTIVE",
+    "qrCode": "..."
+  }
+}
+```
+
+---
+
+## Get My Shops (Owner/Admin)
+
+GET
+
+/shops
+
+Returns all shops owned by the authenticated owner.
+
+---
 
 ## Get Shop Details
 
@@ -178,17 +225,59 @@ GET
 
 Returns
 
-Shop Name
+Shop Name, Public ID, Address, Status, Discovered Printers, Estimated Wait Time.
 
-QR
+---
 
-Address
+## Update Shop Configuration (Owner/Admin)
 
-Status
+PATCH
 
-Printers
+/shops/{shopId}
 
-Estimated Wait Time
+Strictly enforces owner isolation (Owner A cannot update Owner B's shop).
+
+---
+
+## Get Shop Printers & Edge Devices (Owner/Admin)
+
+GET
+
+/shops/{shopId}/printers
+
+Returns discovered local printers and paired Windows Edge Agent heartbeat status.
+
+---
+
+# Public Customer Endpoints (Zero-Login Flow)
+
+## Get Public Shop Page
+
+GET
+
+/public/shops/{publicShopId}
+
+Publicly accessible. Decoupled from internal database UUIDs. Strictly verifies that shop is `ACTIVE`.
+
+---
+
+## Create Anonymous Guest Session
+
+POST
+
+/public/shops/{publicShopId}/session
+
+Issues a 24-hour anonymous JWT containing `guestSessionId`, `shopId`, and `role: "CUSTOMER"`.
+
+---
+
+## Get Public Shop Queue
+
+GET
+
+/public/shops/{publicShopId}/queue
+
+Returns live queue length, active orders, and average wait time for the shop.
 
 ---
 
@@ -224,11 +313,11 @@ Request
 
 ```json
 {
-  "shopId":"",
-  "copies":2,
-  "color":false,
-  "doubleSided":true,
-  "paymentMethod":"UPI"
+  "shopId": "",
+  "copies": 2,
+  "color": false,
+  "doubleSided": true,
+  "paymentMethod": "UPI"
 }
 ```
 
@@ -635,6 +724,168 @@ Automatically generated
 Available at
 
 /docs
+
+---
+
+# Day 8: Partner Platform, Provisioning & Pricing APIs
+
+## 1. Partner Operations (`/api/v1/partner/*`)
+
+_Role Required: `PARTNER` or `ADMIN`_
+
+### `GET /api/v1/partner/stats`
+
+Returns company-level network statistics.
+
+- **Response 200**:
+  ```json
+  {
+    "success": true,
+    "data": {
+      "totalShops": 12,
+      "activeShops": 10,
+      "inactiveShops": 2,
+      "totalOrdersToday": 154,
+      "totalRevenueToday": 3480
+    }
+  }
+  ```
+
+### `GET /api/v1/partner/shops`
+
+Returns list of all shops provisioned on the Velox platform.
+
+- **Response 200**:
+  ```json
+  {
+    "success": true,
+    "data": [
+      {
+        "id": "shop-uuid",
+        "publicShopId": "shop_apex_prints",
+        "name": "Apex Prints",
+        "ownerId": "owner-uuid",
+        "createdByPartnerId": "partner-uuid",
+        "pricePerPageBW": 2.0,
+        "pricePerPageColor": 10.0,
+        "duplexDiscount": 0.5,
+        "status": "ACTIVE",
+        "printers": []
+      }
+    ]
+  }
+  ```
+
+### `POST /api/v1/partner/shops`
+
+Atomically provisions a new print shop and creates its dedicated shop owner account with temporary credentials.
+
+- **Request Body**:
+  ```json
+  {
+    "name": "Apex Prints",
+    "phone": "9876543210",
+    "email": "contact@apexprints.com",
+    "address": "123 Main St",
+    "city": "Bengaluru",
+    "pincode": "560001",
+    "operatingHours": "9:00 AM - 9:00 PM",
+    "pricePerPageBW": 2.0,
+    "pricePerPageColor": 10.0,
+    "duplexDiscount": 0.5,
+    "ownerName": "Ramesh Kumar",
+    "ownerEmail": "ramesh@apexprints.com",
+    "ownerPhone": "9876543210",
+    "temporaryPassword": "TempPassword123!"
+  }
+  ```
+- **Response 201**:
+  ```json
+  {
+    "success": true,
+    "data": {
+      "shop": { "id": "...", "publicShopId": "..." },
+      "owner": { "id": "...", "email": "...", "firstLogin": true },
+      "temporaryPassword": "TempPassword123!"
+    }
+  }
+  ```
+
+### `GET /api/v1/partner/shops/:shopId`
+
+Returns complete profile, fleet, and pricing details for a specific shop.
+
+---
+
+## 2. Authentication & First-Login Password Enforcement
+
+### `POST /api/v1/auth/first-login-change-password`
+
+_Role Required: Authenticated user with `firstLogin: true`_
+
+- **Request Body**:
+  ```json
+  {
+    "temporaryPassword": "TempPassword123!",
+    "newPassword": "NewSecurePassword456!"
+  }
+  ```
+- **Response 200**:
+  ```json
+  {
+    "success": true,
+    "data": {
+      "user": { "id": "...", "firstLogin": false },
+      "accessToken": "jwt_access_token",
+      "refreshToken": "jwt_refresh_token"
+    }
+  }
+  ```
+
+---
+
+## 3. Shop-Specific Pricing APIs (`/api/v1/shops/:shopId/pricing`)
+
+### `GET /api/v1/shops/:shopId/pricing`
+
+Returns current configured page rates for the shop.
+
+- **Response 200**:
+  ```json
+  {
+    "success": true,
+    "data": {
+      "pricePerPageBW": 2.0,
+      "pricePerPageColor": 10.0,
+      "duplexDiscount": 0.5
+    }
+  }
+  ```
+
+### `PATCH /api/v1/shops/:shopId/pricing`
+
+_Role Required: `ADMIN`, `PARTNER`, or assigned `SHOP_OWNER`_
+
+- **Request Body**:
+  ```json
+  {
+    "pricePerPageBW": 2.5,
+    "pricePerPageColor": 12.0,
+    "duplexDiscount": 0.5
+  }
+  ```
+- **Response 200**:
+  ```json
+  {
+    "success": true,
+    "data": {
+      "id": "shop-uuid",
+      "pricePerPageBW": 2.5,
+      "pricePerPageColor": 12.0,
+      "duplexDiscount": 0.5
+    }
+  }
+  ```
 
 ---
 

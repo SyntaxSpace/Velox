@@ -104,6 +104,73 @@ public class PrintEngineTests : IDisposable
         Assert.Single(_printEngine.PrintedJobs);
     }
 
+    [Fact]
+    public async Task WindowsPrinterDiscoveryService_DiscoversSystemPrinters()
+    {
+        if (!OperatingSystem.IsWindows()) return;
+        var logger = new Serilog.LoggerConfiguration().CreateLogger();
+        var discovery = new WindowsPrinterDiscoveryService(logger);
+        var printers = await discovery.DiscoverPrintersAsync();
+        Assert.NotEmpty(printers);
+        foreach (var p in printers)
+        {
+            Console.WriteLine($"PRINTER_FOUND: Name='{p.Name}', Type='{p.PrinterType}', SupportsColor={p.SupportsColor}, CanDuplex={p.CanDuplex}, Default={p.IsDefault}, PaperSizes=[{string.Join(", ", p.SupportedPaperSizes)}]");
+        }
+    }
+
+    [Fact]
+    public async Task WindowsPrintEngine_ControlledPhysicalPrint()
+    {
+        if (!OperatingSystem.IsWindows()) return;
+        var logger = new Serilog.LoggerConfiguration().CreateLogger();
+        var discovery = new WindowsPrinterDiscoveryService(logger);
+        var printEngine = new WindowsPrintEngine(discovery, logger);
+
+        string current = AppContext.BaseDirectory;
+        string testPdf = "";
+        while (!string.IsNullOrEmpty(current))
+        {
+            var candidate = Path.Combine(current, "test-assets", "e2e-test-order.pdf");
+            if (File.Exists(candidate))
+            {
+                testPdf = candidate;
+                break;
+            }
+            var parent = Directory.GetParent(current);
+            if (parent == null) break;
+            current = parent.FullName;
+        }
+
+        var targetPrinter = "RICOH M 2700";
+        if (!WindowsPrintEngine.RawPrinterHelper.IsPrinterOffline("HP LaserJet Professional P1108"))
+        {
+            targetPrinter = "HP LaserJet Professional P1108";
+        }
+        else if (WindowsPrintEngine.RawPrinterHelper.IsPrinterOffline(targetPrinter))
+        {
+            // Skip physical print if neither target printer is online
+            return;
+        }
+
+        var job = new LocalJob
+        {
+            OrderId = Guid.NewGuid().ToString(),
+            OrderCode = "VLX-PHASE5-CONTROLLED",
+            PrinterName = targetPrinter,
+            LocalFilePath = testPdf,
+            Color = "bw",
+            DoubleSided = false,
+            Copies = 1,
+            PaperSize = "A4",
+            Orientation = "portrait"
+        };
+
+        var result = await printEngine.PrintAsync(job);
+        Assert.True(result.Success, $"Controlled print failed: {result.ErrorMessage}");
+        Assert.NotNull(result.SpoolJobId);
+        Console.WriteLine($"PHASE 5 CONTROLLED PRINT SUCCESSFUL on {targetPrinter}: SpoolJobId={result.SpoolJobId}");
+    }
+
     public void Dispose()
     {
         try

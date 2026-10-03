@@ -6,6 +6,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { createOrder } from '@/services/order.service';
+import { createGuestSession } from '@/services/shop.service';
 import { useAuthStore } from '@/store/auth';
 import { Upload, FileText, X, Loader2, ArrowLeft, CheckCircle } from 'lucide-react';
 
@@ -84,16 +85,26 @@ export default function UploadPage() {
       return;
     }
 
-    if (!isAuthenticated) {
-      setError('Please log in to submit an order.');
-      return;
-    }
-
     setIsSubmitting(true);
     setError(null);
     setUploadProgress(0);
 
     try {
+      // If customer is not logged in, ensure a guest session exists
+      if (!isAuthenticated) {
+        let guestToken = localStorage.getItem('velox_guest_session');
+        if (!guestToken) {
+          try {
+            const session = await createGuestSession(shopId);
+            guestToken = session.sessionToken;
+            localStorage.setItem('velox_guest_session', guestToken);
+            localStorage.setItem('velox_guest_session_id', session.guestSessionId);
+          } catch {
+            // Proceed; backend dev fallback will handle if offline
+          }
+        }
+      }
+
       const formData = new FormData();
       formData.append('file', file);
       formData.append('shopId', shopId);

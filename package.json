@@ -13,7 +13,15 @@
     "lint": "npm run lint --workspaces --if-present",
     "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md,yml,yaml}\"",
     "format:check": "prettier --check \"**/*.{ts,tsx,js,jsx,json,md,yml,yaml}\"",
-    "build": "npm run build --workspaces --if-present"
+    "build": "npm run build --workspaces --if-present",
+    "dev:backend": "npm run dev --workspace=backend",
+    "dev:frontend": "npm run dev --workspace=frontend",
+    "dev:agent": "dotnet run --project windows-agent/VeloxAgent.csproj",
+    "db:start": "node scripts/start-postgres.js",
+    "db:migrate": "npm run prisma:migrate --workspace=backend",
+    "db:generate": "npm run prisma:generate --workspace=backend",
+    "db:seed": "tsx backend/prisma/seed.ts",
+    "demo:reset": "node scripts/demo-reset.js"
   },
   "devDependencies": {
     "@commitlint/cli": "^19.7.0",
@@ -26,5 +34,8 @@
     "*.{js,jsx,ts,tsx,json,md,yml,yaml}": [
       "prettier --write"
     ]
+  },
+  "dependencies": {
+    "embedded-postgres": "^18.4.0-beta.17"
   }
 }

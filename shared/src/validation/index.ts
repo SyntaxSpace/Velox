@@ -8,14 +8,16 @@
  */
 
 import { z } from 'zod';
-import { PaymentMethod } from '../enums/index.js';
+import { PaymentMethod, UserRole } from '../enums/index.js';
 import { AUTH, FILE_UPLOAD } from '../constants/index.js';
 
 // ─── Auth Schemas ────────────────────────────────────────────────────
 
 export const registerSchema = z.object({
   name: z.string().min(1, 'Name is required').max(100),
-  email: z.email('Invalid email address'),
+  email: z.string().email('Invalid email address'),
+  phone: z.string().max(20).optional(),
+  role: z.nativeEnum(UserRole).optional(),
   password: z
     .string()
     .min(
@@ -25,8 +27,24 @@ export const registerSchema = z.object({
 });
 
 export const loginSchema = z.object({
-  email: z.email('Invalid email address'),
+  email: z.string().email('Invalid email address'),
   password: z.string().min(1, 'Password is required'),
+});
+
+// ─── Shop Schemas (Day 7) ───────────────────────────────────────────
+
+export const createShopSchema = z.object({
+  name: z.string().min(2, 'Shop name must be at least 2 characters').max(100),
+  phone: z.string().min(8, 'Phone number must be at least 8 characters').max(20),
+  address: z.string().min(3, 'Address is required').max(500),
+  city: z.string().min(2, 'City is required').max(100),
+  pincode: z.string().min(4, 'Pincode is required').max(10),
+  operatingHours: z.string().max(100).optional(),
+  email: z.string().email('Invalid email').optional().or(z.literal('')),
+});
+
+export const publicShopIdParamSchema = z.object({
+  publicShopId: z.string().min(1, 'Public Shop ID is required').max(50),
 });
 
 // ─── Order Schemas ───────────────────────────────────────────────────
@@ -68,8 +86,49 @@ export const uuidParamSchema = z.object({
 
 // ─── Export inferred types ───────────────────────────────────────────
 
+export const provisionShopSchema = z.object({
+  name: z.string().min(2, 'Shop name must be at least 2 characters').max(100),
+  ownerName: z.string().min(2, 'Owner name must be at least 2 characters').max(100),
+  ownerEmail: z.string().email('Invalid owner email address'),
+  ownerPhone: z.string().max(20).optional(),
+  temporaryPassword: z
+    .string()
+    .min(6, 'Temporary password must be at least 6 characters')
+    .optional(),
+  phone: z.string().max(20).optional(),
+  email: z.string().email('Invalid email').optional().or(z.literal('')),
+  address: z.string().max(500).optional(),
+  city: z.string().max(100).optional(),
+  pincode: z.string().max(10).optional(),
+  operatingHours: z.string().max(100).optional(),
+  pricePerPageBW: z.coerce.number().min(0).optional(),
+  pricePerPageColor: z.coerce.number().min(0).optional(),
+  duplexDiscount: z.coerce.number().min(0).optional(),
+});
+
+export const updatePricingSchema = z.object({
+  pricePerPageBW: z.coerce.number().min(0.1, 'B&W price must be at least 0.1').optional(),
+  pricePerPageColor: z.coerce.number().min(0.1, 'Color price must be at least 0.1').optional(),
+  duplexDiscount: z.coerce.number().min(0, 'Discount cannot be negative').optional(),
+});
+
+export const firstLoginPasswordSchema = z.object({
+  temporaryPassword: z.string().optional(),
+  newPassword: z
+    .string()
+    .min(
+      AUTH.MIN_PASSWORD_LENGTH,
+      `Password must be at least ${AUTH.MIN_PASSWORD_LENGTH} characters`,
+    ),
+});
+
 export type RegisterInput = z.infer<typeof registerSchema>;
 export type LoginInput = z.infer<typeof loginSchema>;
+export type CreateShopInput = z.infer<typeof createShopSchema>;
+export type ProvisionShopSchemaInput = z.infer<typeof provisionShopSchema>;
+export type UpdatePricingSchemaInput = z.infer<typeof updatePricingSchema>;
+export type FirstLoginPasswordSchemaInput = z.infer<typeof firstLoginPasswordSchema>;
+export type PublicShopIdParamInput = z.infer<typeof publicShopIdParamSchema>;
 export type CreateOrderInput = z.infer<typeof createOrderSchema>;
 export type FileUploadInput = z.infer<typeof fileUploadSchema>;
 export type PaginationInput = z.infer<typeof paginationSchema>;

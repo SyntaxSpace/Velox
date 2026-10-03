@@ -31,6 +31,7 @@ public sealed class QueueManager
     private readonly AgentAuthService _authService;
     private readonly Serilog.ILogger _logger;
     private Func<string, object, Task>? _eventEmitter;
+    private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, byte> _activeOrders = new();
 
     public QueueManager(
         LocalJobRepository repository,
@@ -60,7 +61,15 @@ public sealed class QueueManager
     {
         _logger.Information("Processing job assignment for order {OrderId} ({OrderCode})...", payload.OrderId, payload.OrderCode);
 
-        // 1. Idempotency Check: prevent duplicate printing if already completed or active
+        // Deduplication Guard: prevent parallel concurrent processing of identical orderId
+        if (!_activeOrders.TryAdd(payload.OrderId, 0))
+        {
+            _logger.Warning("Job {OrderId} is already actively being processed. Ignoring concurrent duplicate assignment.", payload.OrderId);
+            return;
+        }
+
+        try
+        {
         var existingJob = await _repository.GetJobAsync(payload.OrderId);
         if (existingJob != null)
         {
@@ -153,6 +162,11 @@ public sealed class QueueManager
 
         // 9. Immediate Cleanup
         _cleanupService.CleanupJobFile(job.LocalFilePath, job.OrderId);
+        }
+        finally
+        {
+            _activeOrders.TryRemove(payload.OrderId, out _);
+        }
     }
 
     /// <summary>

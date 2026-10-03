@@ -6,9 +6,9 @@ import { orderIdParamSchema, transitionOrderBodySchema } from '../validators/ord
 
 const router = Router();
 
-// All admin routes require auth + OWNER/OPERATOR role
+// All admin routes require auth + SHOP_OWNER/OWNER/OPERATOR role
 router.use(authenticate);
-router.use(authorize('OWNER', 'OPERATOR', 'ADMIN'));
+router.use(authorize('SHOP_OWNER', 'OWNER', 'OPERATOR', 'ADMIN'));
 
 // GET /admin/stats
 router.get('/stats', adminController.getStats);

@@ -51,9 +51,17 @@ public sealed class DownloadManager
             };
         }
 
-        _logger.Information("Starting streaming download for order {OrderId} from {Url}...", orderId, downloadUrl);
+        string resolvedUrl = downloadUrl;
+        if (!Uri.IsWellFormedUriString(downloadUrl, UriKind.Absolute))
+        {
+            var baseUri = new Uri(_config.ApiUrl.TrimEnd('/') + "/");
+            var rel = downloadUrl.TrimStart('/');
+            resolvedUrl = new Uri(baseUri, rel).ToString();
+        }
 
-        using var request = new HttpRequestMessage(HttpMethod.Get, downloadUrl);
+        _logger.Information("Starting streaming download for order {OrderId} from {Url}...", orderId, resolvedUrl);
+
+        using var request = new HttpRequestMessage(HttpMethod.Get, resolvedUrl);
         if (!string.IsNullOrEmpty(authToken))
         {
             request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", authToken);

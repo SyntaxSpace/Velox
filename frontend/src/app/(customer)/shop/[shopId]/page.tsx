@@ -2,7 +2,7 @@
 
 import { useParams, useRouter } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
-import { getShop, ShopData } from '@/services/shop.service';
+import { getPublicShop, ShopData } from '@/services/shop.service';
 import { Printer, MapPin, Phone, Mail, ArrowRight, Loader2 } from 'lucide-react';
 
 export default function ShopPage() {
@@ -16,7 +16,7 @@ export default function ShopPage() {
     error,
   } = useQuery<ShopData>({
     queryKey: ['shop', shopId],
-    queryFn: () => getShop(shopId),
+    queryFn: () => getPublicShop(shopId),
     enabled: !!shopId,
   });
 

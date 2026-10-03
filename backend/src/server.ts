@@ -15,6 +15,11 @@ import { UPLOAD_DIR } from './config/upload';
 import fs from 'fs';
 import multer from 'multer';
 
+// Support BigInt serialization for Prisma schema fields
+(BigInt.prototype as any).toJSON = function () {
+  return Number(this);
+};
+
 const app = express();
 
 // Ensure uploads directory exists
@@ -70,6 +75,20 @@ httpServer.listen(env.PORT, () => {
   logger.info(`📍 Environment: ${env.NODE_ENV}`);
   logger.info(`🔗 Health: http://localhost:${env.PORT}/api/v1/health`);
   logger.info(`🔌 Socket.IO ready`);
+
+  // Scheduled worker: Server-side automatic document cleanup (every 60 seconds)
+  import('./services/cleanup.service').then(({ cleanupService }) => {
+    setInterval(async () => {
+      try {
+        const count = await cleanupService.cleanupExpiredFiles();
+        if (count > 0) {
+          logger.info({ cleanedFiles: count }, 'Server-side automatic file cleanup completed');
+        }
+      } catch (err: any) {
+        logger.error({ err: err.message }, 'Error during server-side file cleanup');
+      }
+    }, 60000);
+  });
 });
 
 // Graceful shutdown

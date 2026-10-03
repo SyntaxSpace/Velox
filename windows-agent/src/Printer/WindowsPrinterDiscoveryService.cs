@@ -1,4 +1,5 @@
 using System.Drawing.Printing;
+using VeloxAgent.Printing;
 
 namespace VeloxAgent.Printer;
 
@@ -32,6 +33,24 @@ public sealed class WindowsPrinterDiscoveryService : IPrinterDiscoveryService
                     var canDuplex = settings.CanDuplex;
                     var isDefault = settings.IsDefaultPrinter;
 
+                    // HP LaserJet P1100 series (such as P1108) is a simplex desktop printer;
+                    // the driver exposes manual duplex which requires human intervention.
+                    if (printerName.Contains("P110", StringComparison.OrdinalIgnoreCase) ||
+                        printerName.Contains("1108", StringComparison.OrdinalIgnoreCase))
+                    {
+                        canDuplex = false;
+                    }
+
+                    // RICOH M 2700 is an automated duplex monochrome MFP
+                    if (printerName.Contains("RICOH", StringComparison.OrdinalIgnoreCase) ||
+                        printerName.Contains("M 2700", StringComparison.OrdinalIgnoreCase))
+                    {
+                        canDuplex = true;
+                        isColor = false;
+                    }
+
+                    bool isOffline = WindowsPrintEngine.RawPrinterHelper.IsPrinterOffline(printerName);
+
                     var paperSizes = new List<string>();
                     foreach (PaperSize paperSize in settings.PaperSizes)
                     {
@@ -42,18 +61,18 @@ public sealed class WindowsPrinterDiscoveryService : IPrinterDiscoveryService
                     {
                         Name = printerName,
                         PrinterType = isColor ? "COLOR" : "BLACK_WHITE",
-                        Status = "ONLINE",
+                        Status = isOffline ? "OFFLINE" : "ONLINE",
                         IsDefault = isDefault,
                         SupportsColor = isColor,
                         CanDuplex = canDuplex,
-                        PagesPerMinute = isColor ? 15 : 25,
+                        PagesPerMinute = isColor ? 15 : (printerName.Contains("1108") ? 18 : 25),
                         SupportedPaperSizes = paperSizes,
                     };
 
                     list.Add(info);
                     _discovered[printerName] = info;
-                    _logger.Information("Discovered printer: {Name} (Type: {Type}, Default: {Default}, Duplex: {Duplex})",
-                        printerName, info.PrinterType, isDefault, canDuplex);
+                    _logger.Information("Discovered printer: {Name} (Type: {Type}, Default: {Default}, Duplex: {Duplex}, Status: {Status})",
+                        printerName, info.PrinterType, isDefault, canDuplex, info.Status);
                 }
                 catch (Exception ex)
                 {
@@ -82,15 +101,31 @@ public sealed class WindowsPrinterDiscoveryService : IPrinterDiscoveryService
             var settings = new PrinterSettings { PrinterName = printerName };
             if (settings.IsValid)
             {
+                var canDuplex = settings.CanDuplex;
+                if (printerName.Contains("P110", StringComparison.OrdinalIgnoreCase) ||
+                    printerName.Contains("1108", StringComparison.OrdinalIgnoreCase))
+                {
+                    canDuplex = false;
+                }
+
+                if (printerName.Contains("RICOH", StringComparison.OrdinalIgnoreCase) ||
+                    printerName.Contains("M 2700", StringComparison.OrdinalIgnoreCase))
+                {
+                    canDuplex = true;
+                }
+
+                bool isOffline = WindowsPrintEngine.RawPrinterHelper.IsPrinterOffline(printerName);
+                bool isColor = settings.SupportsColor && !printerName.Contains("RICOH", StringComparison.OrdinalIgnoreCase);
+
                 var infoCreated = new PrinterInfo
                 {
                     Name = printerName,
-                    PrinterType = settings.SupportsColor ? "COLOR" : "BLACK_WHITE",
-                    Status = "ONLINE",
+                    PrinterType = isColor ? "COLOR" : "BLACK_WHITE",
+                    Status = isOffline ? "OFFLINE" : "ONLINE",
                     IsDefault = settings.IsDefaultPrinter,
-                    SupportsColor = settings.SupportsColor,
-                    CanDuplex = settings.CanDuplex,
-                    PagesPerMinute = settings.SupportsColor ? 15 : 25,
+                    SupportsColor = isColor,
+                    CanDuplex = canDuplex,
+                    PagesPerMinute = isColor ? 15 : (printerName.Contains("1108") ? 18 : 27),
                 };
                 _discovered[printerName] = infoCreated;
                 return infoCreated;

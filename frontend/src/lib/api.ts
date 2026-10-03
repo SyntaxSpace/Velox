@@ -8,12 +8,17 @@ export const api = axios.create({
   withCredentials: true,
 });
 
-// Request interceptor to attach auth token
+// Request interceptor to attach auth or guest token
 api.interceptors.request.use((config) => {
   if (typeof window !== 'undefined') {
     const token = localStorage.getItem('velox_token');
+    const guestSession = localStorage.getItem('velox_guest_session');
+
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
+    } else if (guestSession) {
+      config.headers.Authorization = `Bearer ${guestSession}`;
+      config.headers['x-guest-session'] = guestSession;
     }
   }
   return config;

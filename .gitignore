@@ -48,6 +48,10 @@ pnpm-debug.log*
 # ─── .NET / Windows Agent ────────────────────────────────────
 windows-agent/bin/
 windows-agent/obj/
+windows-agent-ui/bin/
+windows-agent-ui/obj/
+**/bin/
+**/obj/
 *.suo
 *.user
 *.userosscache
@@ -75,6 +79,8 @@ backend/uploads/*
 *.db
 *.db-shm
 *.db-wal
+data/
+backend/data/
 windows-agent/data/
 windows-agent/temp/
 windows-agent/logs/

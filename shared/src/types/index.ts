@@ -35,12 +35,21 @@ export type ApiResponse<T = unknown> = ApiSuccessResponse<T> | ApiErrorResponse;
 
 export interface Shop {
   id: string;
+  publicShopId: string;
   name: string;
+  createdByPartnerId?: string | null;
+  ownerId: string | null;
   qrCode: string;
-  address: string;
-  phone: string;
-  email: string;
+  address: string | null;
+  city: string | null;
+  pincode: string | null;
+  phone: string | null;
+  email: string | null;
+  operatingHours: string | null;
   status: ShopStatus;
+  pricePerPageBW?: number;
+  pricePerPageColor?: number;
+  duplexDiscount?: number;
   createdAt: string;
   updatedAt: string;
 }
@@ -50,8 +59,9 @@ export interface User {
   shopId: string | null;
   name: string;
   email: string;
-  phone: string;
+  phone: string | null;
   role: UserRole;
+  firstLogin?: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -70,7 +80,8 @@ export interface Printer {
 export interface Order {
   id: string;
   orderCode: string;
-  userId: string;
+  userId: string | null;
+  guestSessionId: string | null;
   shopId: string;
   printerId: string | null;
   queuePosition: number | null;
@@ -128,6 +139,16 @@ export interface OrderEvent {
   createdAt: string;
 }
 
+// ─── Guest Session (Day 7) ──────────────────────────────────────────
+
+export interface GuestSession {
+  sessionToken: string;
+  guestSessionId: string;
+  shopId: string;
+  publicShopId: string;
+  expiresAt: string;
+}
+
 // ─── Request Types (per API_SPEC.md) ─────────────────────────────────
 
 export interface CreateOrderRequest {
@@ -138,15 +159,76 @@ export interface CreateOrderRequest {
   paymentMethod: PaymentMethod;
 }
 
+export interface CreateShopRequest {
+  name: string;
+  phone: string;
+  address: string;
+  city: string;
+  pincode: string;
+  operatingHours?: string;
+  email?: string;
+}
+
 export interface RegisterRequest {
   name: string;
   email: string;
   password: string;
+  phone?: string;
+  role?: UserRole;
 }
 
 export interface LoginRequest {
   email: string;
   password: string;
+}
+
+export interface ProvisionShopInput {
+  name: string;
+  ownerName: string;
+  ownerEmail: string;
+  ownerPhone?: string;
+  temporaryPassword?: string;
+  phone?: string;
+  email?: string;
+  address?: string;
+  city?: string;
+  pincode?: string;
+  operatingHours?: string;
+  pricePerPageBW?: number;
+  pricePerPageColor?: number;
+  duplexDiscount?: number;
+}
+
+export interface ProvisionShopResponse {
+  shop: Shop;
+  owner: {
+    id: string;
+    name: string;
+    email: string;
+    phone: string | null;
+    role: UserRole;
+    firstLogin: boolean;
+    temporaryPassword?: string;
+  };
+}
+
+export interface UpdatePricingInput {
+  pricePerPageBW?: number;
+  pricePerPageColor?: number;
+  duplexDiscount?: number;
+}
+
+export interface FirstLoginPasswordInput {
+  temporaryPassword?: string;
+  newPassword: string;
+}
+
+export interface PartnerStats {
+  totalShops: number;
+  activeShops: number;
+  inactiveShops: number;
+  totalOrdersToday: number;
+  totalRevenueToday: number;
 }
 
 // ─── Agent Types (per WINDOWS_AGENT.md) ──────────────────────────────

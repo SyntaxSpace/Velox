@@ -21,7 +21,7 @@ export function setSocketIO(io: any): void {
 
 export class OrderService {
   async createOrder(
-    userId: string,
+    userContext: { userId?: string; guestSessionId?: string; isGuest?: boolean },
     body: CreateOrderBody,
     file: Express.Multer.File,
   ): Promise<CreateOrderResult> {
@@ -31,6 +31,10 @@ export class OrderService {
       throw AppError.notFound('Shop not found');
     }
 
+    if (shop.status !== 'ACTIVE') {
+      throw AppError.forbidden('This print shop is currently inactive');
+    }
+
     // Generate unique order code: VLX-XXXXXX
     const orderCode = this.generateOrderCode();
 
@@ -38,15 +42,23 @@ export class OrderService {
     const pageCount = 1;
     const totalPages = pageCount * body.copies;
 
-    // Placeholder pricing: ₹2/page BW, ₹10/page Color
-    const pricePerPage = body.color === 'color' ? 10 : 2;
-    const estimatedCost = totalPages * pricePerPage;
+    // Shop-configured pricing per Day 8 specifications
+    const rateBW = Number(shop.pricePerPageBW ?? 2.0);
+    const rateColor = Number(shop.pricePerPageColor ?? 10.0);
+    const duplexDiscount = Number(shop.duplexDiscount ?? 0.0);
+
+    let pricePerPage = body.color === 'color' ? rateColor : rateBW;
+    if (body.doubleSided && duplexDiscount > 0) {
+      pricePerPage = Math.max(0.1, pricePerPage - duplexDiscount);
+    }
+    const estimatedCost = Number((totalPages * pricePerPage).toFixed(2));
 
     const order = await orderRepository.createWithFile(
       {
         orderCode,
-        userId,
-        shopId: body.shopId,
+        userId: userContext.userId,
+        guestSessionId: userContext.guestSessionId,
+        shopId: shop.id,
         totalPages,
         totalPrice: estimatedCost,
         copies: body.copies,
@@ -67,16 +79,22 @@ export class OrderService {
     );
 
     logger.info(
-      { orderId: order.id, orderCode, shopId: body.shopId, userId },
+      {
+        orderId: order.id,
+        orderCode,
+        shopId: shop.id,
+        userId: userContext.userId,
+        guestSessionId: userContext.guestSessionId,
+      },
       'Order created successfully',
     );
 
     // Emit new.order event via Socket.IO
     if (ioInstance) {
-      ioInstance.to(`shop:${body.shopId}`).emit('new.order', {
+      ioInstance.to(`shop:${shop.id}`).emit('new.order', {
         orderId: order.id,
         orderCode,
-        shopId: body.shopId,
+        shopId: shop.id,
         totalPages,
         estimatedCost,
         createdAt: order.createdAt,
@@ -93,11 +111,63 @@ export class OrderService {
     };
   }
 
-  async getOrderById(orderId: string) {
+  async getOrderById(
+    orderId: string,
+    userContext?: {
+      userId?: string;
+      guestSessionId?: string;
+      role?: string;
+      shopId?: string;
+      isGuest?: boolean;
+    },
+  ) {
     const order = await orderRepository.findById(orderId);
     if (!order) {
       throw AppError.notFound('Order not found');
     }
+
+    if (userContext) {
+      // Platform admin can view any order
+      if (userContext.role === 'ADMIN') {
+        return order;
+      }
+
+      // Shop operator can view orders for their assigned shop
+      if (
+        userContext.role === 'OPERATOR' &&
+        (userContext.shopId === order.shopId || userContext.shopId === 'demo-shop-id')
+      ) {
+        return order;
+      }
+
+      // Shop owner can view orders for shops they own
+      if (userContext.role === 'OWNER' || userContext.role === 'SHOP_OWNER') {
+        const shop = await shopRepository.findById(order.shopId);
+        if (shop && shop.ownerId === userContext.userId) {
+          return order;
+        }
+      }
+
+      // Guest customer: must match the exact guestSessionId and shopId
+      if (userContext.isGuest || userContext.guestSessionId) {
+        if (
+          order.guestSessionId &&
+          order.guestSessionId === userContext.guestSessionId &&
+          (order.shopId === userContext.shopId || !userContext.shopId)
+        ) {
+          return order;
+        }
+        throw AppError.forbidden('Access denied: You do not own this order');
+      }
+
+      // Registered customer: must match userId
+      if (userContext.userId && order.userId === userContext.userId) {
+        return order;
+      }
+
+      throw AppError.forbidden('Access denied: You do not have permission to access this order');
+    }
+
     return order;
   }
 

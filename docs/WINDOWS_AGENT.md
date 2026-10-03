@@ -624,6 +624,37 @@ Operators should never need to interact with it during normal operation.
 
 ---
 
+# Operational Guide & Demo Configuration (Verified in Day 10)
+
+## Configuration Files & Environment Variables
+
+The agent loads configuration in order of precedence:
+
+1. `appsettings.json` (base settings)
+2. Environment variables with `VELOX_` prefix
+3. Command line arguments
+
+### Key Configuration Settings
+
+- `Agent:ShopId`: Unique UUID of the assigned shop (must match database record)
+- `Agent:DeviceId`: Hardware device identity (e.g. `VELOX-DEMO-AGENT-01`)
+- `Agent:DeviceKey`: Secret key for device authentication
+- `Agent:ApiUrl`: REST API URL (`http://localhost:5000`)
+- `Agent:WsUrl`: WebSocket Gateway URL (`http://localhost:5000/agent`)
+- `Agent:HeartbeatIntervalSeconds`: `30`
+
+## Authentication & Lifecycle
+
+1. **Login:** Device calls `POST /api/v1/agent/login` with `shopId`, `deviceId`, `deviceKey`.
+2. **Token:** Backend validates credentials against `devices` table, issues JWT with `ROLE: AGENT`.
+3. **Socket:** Connects to `/agent` namespace with Bearer token, joins room `shop:<shopId>`.
+4. **Heartbeat:** Sends `agent.heartbeat` every 30s. Backend marks device `ONLINE` and updates `last_heartbeat`. If heartbeat is missed for >90s, backend flags device `OFFLINE`.
+5. **Job Dispatch:** Backend emits `job.assigned` to shop room. Agent processes queue locally via SQLite `agent_queue.db`.
+6. **Execution:** Downloads PDF over authenticated streaming endpoint, validates SHA-256 hash against server manifest, configures `PrinterSettings`, and sends GDI document to Windows Print Spooler.
+7. **Cleanup:** Local file in `temp/` is shredded immediately upon spool confirmation.
+
+---
+
 # Conclusion
 
 The Windows Agent is the bridge between the Velox cloud platform and local print infrastructure.

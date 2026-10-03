@@ -10,8 +10,10 @@ generator client {
 enum UserRole {
   CUSTOMER
   OPERATOR
-  OWNER
+  SHOP_OWNER
+  PARTNER
   ADMIN
+  OWNER
 }
 
 enum OrderStatus {
@@ -60,22 +62,36 @@ enum ShopStatus {
 }
 
 model Shop {
-  id        String     @id @default(uuid()) @db.Uuid
-  name      String     @db.VarChar(100)
-  qrCode    String     @unique @map("qr_code")
-  address   String?    @db.Text
-  phone     String?    @db.VarChar(15)
-  email     String?    @db.VarChar(255)
-  status    ShopStatus @default(ACTIVE)
-  createdAt DateTime   @default(now()) @map("created_at")
-  updatedAt DateTime   @updatedAt @map("updated_at")
+  id                 String     @id @default(uuid()) @db.Uuid
+  publicShopId       String     @unique @map("public_shop_id") @db.VarChar(50)
+  name               String     @db.VarChar(100)
+  createdByPartnerId String?    @map("created_by_partner_id") @db.Uuid
+  ownerId            String?    @map("owner_id") @db.Uuid
+  qrCode             String     @unique @map("qr_code")
+  address            String?    @db.Text
+  city               String?    @db.VarChar(100)
+  pincode            String?    @db.VarChar(10)
+  phone              String?    @db.VarChar(20)
+  email              String?    @db.VarChar(255)
+  operatingHours     String?    @map("operating_hours") @db.VarChar(100)
+  status             ShopStatus @default(ACTIVE)
+  pricePerPageBW     Decimal    @default(2.00) @map("price_per_page_bw") @db.Decimal(6, 2)
+  pricePerPageColor  Decimal    @default(10.00) @map("price_per_page_color") @db.Decimal(6, 2)
+  duplexDiscount     Decimal    @default(0.00) @map("duplex_discount") @db.Decimal(6, 2)
+  createdAt          DateTime   @default(now()) @map("created_at")
+  updatedAt          DateTime   @updatedAt @map("updated_at")
 
-  users        User[]
-  printers     Printer[]
-  orders       Order[]
-  transactions Transaction[]
-  devices      Device[]
+  createdByPartner User?         @relation("PartnerCreatedShops", fields: [createdByPartnerId], references: [id], onDelete: SetNull)
+  owner            User?         @relation("ShopOwner", fields: [ownerId], references: [id], onDelete: SetNull)
+  operators        User[]        @relation("ShopOperators")
+  printers         Printer[]
+  orders           Order[]
+  transactions     Transaction[]
+  devices          Device[]
 
+  @@index([ownerId])
+  @@index([publicShopId])
+  @@index([createdByPartnerId])
   @@map("shops")
 }
 
@@ -84,13 +100,16 @@ model User {
   shopId       String?  @map("shop_id") @db.Uuid
   name         String   @db.VarChar(100)
   email        String   @unique @db.VarChar(255)
-  phone        String?  @db.VarChar(15)
+  phone        String?  @db.VarChar(20)
   role         UserRole
   passwordHash String   @map("password_hash") @db.VarChar(255)
+  firstLogin   Boolean  @default(false) @map("first_login")
   createdAt    DateTime @default(now()) @map("created_at")
   updatedAt    DateTime @updatedAt @map("updated_at")
 
-  shop          Shop?          @relation(fields: [shopId], references: [id], onDelete: SetNull)
+  createdShops  Shop[]         @relation("PartnerCreatedShops")
+  ownedShops    Shop[]         @relation("ShopOwner")
+  shop          Shop?          @relation("ShopOperators", fields: [shopId], references: [id], onDelete: SetNull)
   orders        Order[]
   notifications Notification[]
 
@@ -118,25 +137,26 @@ model Printer {
 }
 
 model Order {
-  id            String        @id @default(uuid()) @db.Uuid
-  orderCode     String        @unique @map("order_code")
-  userId        String        @map("user_id") @db.Uuid
-  shopId        String        @map("shop_id") @db.Uuid
-  printerId     String?       @map("printer_id") @db.Uuid
-  queuePosition Int?          @map("queue_position")
-  totalPages    Int           @default(0) @map("total_pages")
-  totalPrice    Decimal       @default(0) @map("total_price") @db.Decimal(10, 2)
-  paymentStatus PaymentStatus @default(PENDING) @map("payment_status")
-  orderStatus   OrderStatus   @default(PENDING) @map("order_status")
-  estimatedTime Int?          @map("estimated_time")
-  copies        Int           @default(1)
-  color         String        @default("bw") @db.VarChar(10)
-  doubleSided   Boolean       @default(false) @map("double_sided")
-  orientation   String        @default("portrait") @db.VarChar(20)
-  paperSize     String        @default("A4") @map("paper_size") @db.VarChar(10)
-  createdAt     DateTime      @default(now()) @map("created_at")
+  id             String        @id @default(uuid()) @db.Uuid
+  orderCode      String        @unique @map("order_code")
+  userId         String?       @map("user_id") @db.Uuid
+  guestSessionId String?       @map("guest_session_id") @db.VarChar(100)
+  shopId         String        @map("shop_id") @db.Uuid
+  printerId      String?       @map("printer_id") @db.Uuid
+  queuePosition  Int?          @map("queue_position")
+  totalPages     Int           @default(0) @map("total_pages")
+  totalPrice     Decimal       @default(0) @map("total_price") @db.Decimal(10, 2)
+  paymentStatus  PaymentStatus @default(PENDING) @map("payment_status")
+  orderStatus    OrderStatus   @default(PENDING) @map("order_status")
+  estimatedTime  Int?          @map("estimated_time")
+  copies         Int           @default(1)
+  color          String        @default("bw") @db.VarChar(10)
+  doubleSided    Boolean       @default(false) @map("double_sided")
+  orientation    String        @default("portrait") @db.VarChar(20)
+  paperSize      String        @default("A4") @map("paper_size") @db.VarChar(10)
+  createdAt      DateTime      @default(now()) @map("created_at")
 
-  user    User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user    User?        @relation(fields: [userId], references: [id], onDelete: SetNull)
   shop    Shop         @relation(fields: [shopId], references: [id], onDelete: Cascade)
   printer Printer?     @relation(fields: [printerId], references: [id], onDelete: SetNull)
   files   OrderFile[]
@@ -146,6 +166,7 @@ model Order {
 
   @@index([shopId])
   @@index([userId])
+  @@index([guestSessionId])
   @@index([orderStatus])
   @@map("orders")
 }

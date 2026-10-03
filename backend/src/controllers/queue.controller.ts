@@ -17,7 +17,7 @@ export class QueueController {
   async getOrderStatus(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const { orderId } = req.params;
-      const status = await queueService.getOrderStatus(orderId);
+      const status = await queueService.getOrderStatus(orderId, req.user);
       sendSuccess(res, status, 'Order status retrieved');
     } catch (error) {
       next(error);
@@ -27,7 +27,7 @@ export class QueueController {
   async getOrderQueue(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const { orderId } = req.params;
-      const queueInfo = await queueService.getQueuePosition(orderId);
+      const queueInfo = await queueService.getQueuePosition(orderId, req.user);
       sendSuccess(res, queueInfo, 'Queue position retrieved');
     } catch (error) {
       next(error);
@@ -36,11 +36,15 @@ export class QueueController {
 
   async cancelOrder(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      if (!req.user || !req.user.userId) {
+      if (!req.user || (!req.user.userId && !req.user.guestSessionId)) {
         throw AppError.unauthorized('Authentication required');
       }
       const { orderId } = req.params;
-      await queueService.cancelOrder(orderId, req.user.userId);
+      await queueService.cancelOrder(
+        orderId,
+        req.user.userId || req.user.guestSessionId!,
+        req.user,
+      );
       sendSuccess(res, { orderId, status: 'CANCELLED' }, 'Order cancelled successfully');
     } catch (error) {
       next(error);
