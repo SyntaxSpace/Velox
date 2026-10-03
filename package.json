@@ -19,8 +19,10 @@
     "dev:agent": "dotnet run --project windows-agent/VeloxAgent.csproj",
     "db:start": "node scripts/start-postgres.js",
     "db:migrate": "npm run prisma:migrate --workspace=backend",
+    "db:migrate:deploy": "npm run prisma:migrate:deploy --workspace=backend",
     "db:generate": "npm run prisma:generate --workspace=backend",
-    "db:seed": "tsx backend/prisma/seed.ts",
+    "db:bootstrap:partner": "npm run bootstrap:partner --workspace=backend",
+    "db:seed": "npm run seed --workspace=backend",
     "demo:reset": "node scripts/demo-reset.js"
   },
   "devDependencies": {

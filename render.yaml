@@ -1,0 +1,31 @@
+services:
+  - type: web
+    name: velox-backend
+    runtime: docker
+    plan: 0.5c-1g
+    region: singapore
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: ./backend
+    autoDeployTrigger: off
+    healthCheckPath: /api/v1/health
+    disk:
+      name: velox-uploads
+      mountPath: /app/uploads
+      sizeGB: 10
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: HOST
+        value: 0.0.0.0
+      - key: UPLOAD_DIR
+        value: /app/uploads
+      - key: DATABASE_URL
+        sync: false
+      - key: DIRECT_URL
+        sync: false
+      - key: CORS_ORIGIN
+        sync: false
+      - key: JWT_SECRET
+        generateValue: true
+      - key: JWT_REFRESH_SECRET
+        generateValue: true

@@ -6,7 +6,7 @@ import { AppError } from '../utils/app-error';
 
 const ALLOWED_MIME_TYPES = ['application/pdf', 'image/png', 'image/jpeg'];
 
-const UPLOAD_DIR = path.join(process.cwd(), 'uploads');
+const UPLOAD_DIR = path.resolve(process.cwd(), env.UPLOAD_DIR);
 
 const storage = multer.diskStorage({
   destination: (_req, _file, cb) => {

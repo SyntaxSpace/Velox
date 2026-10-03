@@ -1,6 +1,7 @@
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 generator client {
@@ -156,12 +157,12 @@ model Order {
   paperSize      String        @default("A4") @map("paper_size") @db.VarChar(10)
   createdAt      DateTime      @default(now()) @map("created_at")
 
-  user    User?        @relation(fields: [userId], references: [id], onDelete: SetNull)
-  shop    Shop         @relation(fields: [shopId], references: [id], onDelete: Cascade)
-  printer Printer?     @relation(fields: [printerId], references: [id], onDelete: SetNull)
-  files   OrderFile[]
-  payment Payment?
-  events  OrderEvent[]
+  user         User?         @relation(fields: [userId], references: [id], onDelete: SetNull)
+  shop         Shop          @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  printer      Printer?      @relation(fields: [printerId], references: [id], onDelete: SetNull)
+  files        OrderFile[]
+  payment      Payment?
+  events       OrderEvent[]
   transactions Transaction[]
 
   @@index([shopId])
@@ -257,7 +258,7 @@ model Device {
   createdAt     DateTime  @default(now()) @map("created_at")
   updatedAt     DateTime  @updatedAt @map("updated_at")
 
-  shop          Shop      @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  shop Shop @relation(fields: [shopId], references: [id], onDelete: Cascade)
 
   @@index([shopId])
   @@map("devices")

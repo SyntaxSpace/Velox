@@ -1,9 +1,17 @@
+import path from 'path';
+import dotenv from 'dotenv';
 import { PrismaClient } from '@prisma/client';
 import * as argon2 from 'argon2';
+
+dotenv.config({ path: path.resolve(__dirname, '../.env') });
 
 const prisma = new PrismaClient();
 
 async function main() {
+  if (process.env.NODE_ENV !== 'development') {
+    throw new Error('The demo seed is restricted to NODE_ENV=development.');
+  }
+
   console.log('Starting seed...');
 
   const shop = await prisma.shop.upsert({

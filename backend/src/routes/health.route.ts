@@ -1,6 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { prisma } from '../database/prisma';
 import { isAgentGatewayRunning } from '../socket';
+import { env } from '../config/env';
 
 const router = Router();
 
@@ -15,16 +16,19 @@ router.get('/health', async (_req: Request, res: Response) => {
 
   const gatewayStatus = isAgentGatewayRunning() ? 'running' : 'stopped';
 
-  res.status(200).json({
+  const isReady = dbStatus === 'connected';
+  const statusCode = env.NODE_ENV === 'production' && !isReady ? 503 : 200;
+
+  res.status(statusCode).json({
     success: true,
-    message: 'Velox API is healthy',
+    message: isReady ? 'Velox API is healthy' : 'Velox API is waiting for the database',
     data: {
-      status: 'ok',
+      status: isReady ? 'ok' : 'degraded',
       database: dbStatus,
       agentGateway: gatewayStatus,
       timestamp: new Date().toISOString(),
       uptime: process.uptime(),
-      environment: process.env.NODE_ENV || 'development',
+      environment: env.NODE_ENV,
     },
   });
 });
