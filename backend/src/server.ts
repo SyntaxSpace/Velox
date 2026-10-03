@@ -5,6 +5,7 @@ import compression from 'compression';
 import cookieParser from 'cookie-parser';
 import { createServer } from 'http';
 import { env } from './config/env';
+import { corsOptions } from './config/cors';
 import { logger } from './config/logger';
 import { errorHandler } from './middlewares/error-handler';
 import routes from './routes';
@@ -29,7 +30,7 @@ if (!fs.existsSync(UPLOAD_DIR)) {
 
 // Security middleware
 app.use(helmet());
-app.use(cors({ origin: env.CORS_ORIGIN, credentials: true }));
+app.use(cors(corsOptions));
 
 // Body parsing
 app.use(cookieParser());
@@ -70,7 +71,7 @@ const httpServer = createServer(app);
 const io = initializeSocket(httpServer);
 setSocketIO(io);
 
-httpServer.listen(env.PORT, () => {
+httpServer.listen(env.PORT, env.HOST, () => {
   logger.info(`🚀 Velox API server running on port ${env.PORT}`);
   logger.info(`📍 Environment: ${env.NODE_ENV}`);
   logger.info(`🔗 Health: http://localhost:${env.PORT}/api/v1/health`);

@@ -5,6 +5,7 @@ import { prisma } from '../database/prisma';
 import { AppError } from '../utils/app-error';
 import { logger } from '../config/logger';
 import { generateAgentToken } from '../config/jwt';
+import { UPLOAD_DIR } from '../config/upload';
 import { PrinterType, PrinterStatus } from '@prisma/client';
 
 export interface AgentLoginDto {
@@ -382,7 +383,7 @@ export class AgentService {
     }
 
     const orderFile = order.files[0];
-    const uploadsDir = path.join(process.cwd(), 'uploads');
+    const uploadsDir = UPLOAD_DIR;
     const safeFilename = path.basename(orderFile.fileUrl);
     const filePath = path.join(uploadsDir, safeFilename);
 

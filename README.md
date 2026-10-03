@@ -49,6 +49,8 @@ Customer (Mobile Web)               Shop Counter (Windows PC)
 
 ## 🚀 Getting Started
 
+For Supabase, backend hosting, Vercel, and production environment setup, see [the production deployment guide](docs/PRODUCTION_DEPLOYMENT.md).
+
 ### Prerequisites
 
 - Node.js 20+ & npm 10+

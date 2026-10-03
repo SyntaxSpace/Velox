@@ -1,18 +1,17 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
 import { getMyShops, getShopQueue, ShopData, ShopQueueInfo } from '@/services/shop.service';
 import { useAuthStore } from '@/store/auth';
 import { ArrowLeft, Loader2, Activity, Printer, Clock } from 'lucide-react';
-import { io, Socket } from 'socket.io-client';
+import { io } from 'socket.io-client';
 
 export default function ShopOwnerQueuePage() {
   const router = useRouter();
-  const { isAuthenticated, token } = useAuthStore();
-  const [socket, setSocket] = useState<Socket | null>(null);
+  const { isAuthenticated } = useAuthStore();
 
   useEffect(() => {
     const localToken = typeof window !== 'undefined' ? localStorage.getItem('velox_token') : null;
@@ -40,7 +39,7 @@ export default function ShopOwnerQueuePage() {
 
   useEffect(() => {
     if (assignedShop?.id) {
-      const newSocket = io(process.env.NEXT_PUBLIC_SOCKET_URL || 'http://localhost:3002', {
+      const newSocket = io(process.env.NEXT_PUBLIC_SOCKET_URL || 'http://localhost:5000', {
         path: '/socket.io',
         transports: ['websocket'],
       });
@@ -60,8 +59,6 @@ export default function ShopOwnerQueuePage() {
       newSocket.on('order.status.changed', () => {
         refetch();
       });
-
-      setSocket(newSocket);
 
       return () => {
         newSocket.disconnect();

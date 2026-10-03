@@ -1,6 +1,6 @@
 import { Server as HttpServer } from 'http';
 import { Server as SocketIOServer, Socket } from 'socket.io';
-import { env } from '../config/env';
+import { corsOptions } from '../config/cors';
 import { logger } from '../config/logger';
 import { verifyAccessToken } from '../config/jwt';
 import { agentService } from '../services/agent.service';
@@ -28,10 +28,7 @@ export function emitToClientShop(shopId: string, event: string, data: any): void
 
 export function initializeSocket(httpServer: HttpServer): SocketIOServer {
   const io = new SocketIOServer(httpServer, {
-    cors: {
-      origin: env.CORS_ORIGIN,
-      credentials: true,
-    },
+    cors: corsOptions,
   });
 
   globalIo = io;
