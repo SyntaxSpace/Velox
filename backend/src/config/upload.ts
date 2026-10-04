@@ -8,7 +8,7 @@ const ALLOWED_MIME_TYPES = ['application/pdf', 'image/png', 'image/jpeg'];
 
 const UPLOAD_DIR = path.resolve(process.cwd(), env.UPLOAD_DIR);
 
-const storage = multer.diskStorage({
+const diskStorage = multer.diskStorage({
   destination: (_req, _file, cb) => {
     cb(null, UPLOAD_DIR);
   },
@@ -18,6 +18,8 @@ const storage = multer.diskStorage({
     cb(null, uniqueName);
   },
 });
+
+const storage = env.UPLOAD_STORAGE === 'supabase' ? multer.memoryStorage() : diskStorage;
 
 const fileFilter: multer.Options['fileFilter'] = (_req, file, cb) => {
   if (ALLOWED_MIME_TYPES.includes(file.mimetype)) {

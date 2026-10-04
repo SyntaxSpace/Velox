@@ -17,6 +17,10 @@ const envSchema = z
     CORS_ORIGIN: z.string().default('http://localhost:3000'),
     UPLOAD_MAX_SIZE: z.coerce.number().default(52428800),
     UPLOAD_DIR: z.string().min(1).default('uploads'),
+    UPLOAD_STORAGE: z.enum(['local', 'supabase']).default('local'),
+    SUPABASE_URL: z.string().url().optional(),
+    SUPABASE_SECRET_KEY: z.string().min(1).optional(),
+    SUPABASE_STORAGE_BUCKET: z.string().min(1).default('velox-print-documents'),
   })
   .superRefine((values, context) => {
     const origins = values.CORS_ORIGIN.split(',')
@@ -29,6 +33,18 @@ const envSchema = z
         path: ['CORS_ORIGIN'],
         message: 'At least one allowed origin is required',
       });
+    }
+
+    if (values.UPLOAD_STORAGE === 'supabase') {
+      for (const key of ['SUPABASE_URL', 'SUPABASE_SECRET_KEY'] as const) {
+        if (!values[key]) {
+          context.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: [key],
+            message: 'Required when UPLOAD_STORAGE=supabase',
+          });
+        }
+      }
     }
 
     if (values.NODE_ENV !== 'production') return;

@@ -1,5 +1,4 @@
 import { Request, Response, NextFunction } from 'express';
-import fs from 'fs';
 import { agentService } from '../services/agent.service';
 import { sendSuccess } from '../utils/api-response';
 import { AppError } from '../utils/app-error';
@@ -60,9 +59,7 @@ export class AgentController {
       res.setHeader('X-Checksum-SHA256', fileInfo.checksum);
       res.setHeader('Content-Disposition', `attachment; filename="${fileInfo.filename}"`);
 
-      // Stream file to client
-      const fileStream = fs.createReadStream(fileInfo.filePath);
-      fileStream.pipe(res);
+      res.end(fileInfo.buffer);
     } catch (error) {
       next(error);
     }

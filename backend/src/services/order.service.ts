@@ -3,6 +3,7 @@ import { orderRepository } from '../repositories/order.repository';
 import { shopRepository } from '../repositories/shop.repository';
 import { AppError } from '../utils/app-error';
 import { logger } from '../config/logger';
+import { printStorageService } from './print-storage.service';
 import { CreateOrderBody } from '../validators/order.validator';
 
 export interface CreateOrderResult {
@@ -53,30 +54,41 @@ export class OrderService {
     }
     const estimatedCost = Number((totalPages * pricePerPage).toFixed(2));
 
-    const order = await orderRepository.createWithFile(
-      {
-        orderCode,
-        userId: userContext.userId,
-        guestSessionId: userContext.guestSessionId,
-        shopId: shop.id,
-        totalPages,
-        totalPrice: estimatedCost,
-        copies: body.copies,
-        color: body.color,
-        doubleSided: body.doubleSided,
-        orientation: body.orientation,
-        paperSize: body.paperSize,
-        paymentMethod: body.paymentMethod,
-      },
-      {
-        filename: file.originalname,
-        fileUrl: file.filename, // UUID-based filename on disk
-        pageCount,
-        size: BigInt(file.size),
-        mimeType: file.mimetype,
-      },
-      'ORDER_CREATED',
-    );
+    const fileKey = await printStorageService.saveUploadedFile(file);
+    let order;
+    try {
+      order = await orderRepository.createWithFile(
+        {
+          orderCode,
+          userId: userContext.userId,
+          guestSessionId: userContext.guestSessionId,
+          shopId: shop.id,
+          totalPages,
+          totalPrice: estimatedCost,
+          copies: body.copies,
+          color: body.color,
+          doubleSided: body.doubleSided,
+          orientation: body.orientation,
+          paperSize: body.paperSize,
+          paymentMethod: body.paymentMethod,
+        },
+        {
+          filename: file.originalname,
+          fileUrl: fileKey,
+          pageCount,
+          size: BigInt(file.size),
+          mimeType: file.mimetype,
+        },
+        'ORDER_CREATED',
+      );
+    } catch (error) {
+      try {
+        await printStorageService.deleteFile(fileKey);
+      } catch (cleanupError) {
+        logger.error({ cleanupError, fileKey }, 'Failed to clean up an unlinked print document');
+      }
+      throw error;
+    }
 
     logger.info(
       {

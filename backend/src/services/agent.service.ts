@@ -1,11 +1,9 @@
-import fs from 'fs';
-import path from 'path';
 import crypto from 'crypto';
 import { prisma } from '../database/prisma';
 import { AppError } from '../utils/app-error';
 import { logger } from '../config/logger';
 import { generateAgentToken } from '../config/jwt';
-import { UPLOAD_DIR } from '../config/upload';
+import { printStorageService } from './print-storage.service';
 import { PrinterType, PrinterStatus } from '@prisma/client';
 
 export interface AgentLoginDto {
@@ -383,25 +381,11 @@ export class AgentService {
     }
 
     const orderFile = order.files[0];
-    const uploadsDir = UPLOAD_DIR;
-    const safeFilename = path.basename(orderFile.fileUrl);
-    const filePath = path.join(uploadsDir, safeFilename);
-
-    // Verify path stays within uploads directory (prevent path traversal)
-    if (!filePath.startsWith(uploadsDir)) {
-      throw AppError.badRequest('Invalid file path');
-    }
-
-    if (!fs.existsSync(filePath)) {
-      throw AppError.notFound('Document file not found on disk');
-    }
-
-    // Calculate SHA-256 checksum
-    const fileBuffer = fs.readFileSync(filePath);
+    const fileBuffer = await printStorageService.readFile(orderFile.fileUrl);
     const checksum = crypto.createHash('sha256').update(fileBuffer).digest('hex');
 
     return {
-      filePath,
+      buffer: fileBuffer,
       filename: orderFile.filename,
       mimeType: orderFile.mimeType,
       size: fileBuffer.length,

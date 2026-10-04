@@ -1,8 +1,6 @@
-import fs from 'fs';
-import path from 'path';
 import { prisma } from '../database/prisma';
 import { logger } from '../config/logger';
-import { UPLOAD_DIR } from '../config/upload';
+import { printStorageService } from './print-storage.service';
 import { OrderStatus } from '@prisma/client';
 
 export class CleanupService {
@@ -23,18 +21,19 @@ export class CleanupService {
 
       for (const order of completedOrders) {
         for (const file of order.files) {
-          const filePath = path.join(UPLOAD_DIR, path.basename(file.fileUrl));
-          if (fs.existsSync(filePath)) {
-            try {
-              fs.unlinkSync(filePath);
+          try {
+            if (await printStorageService.deleteFile(file.fileUrl)) {
               cleanedCount++;
               logger.info(
-                { orderId: order.id, filePath },
+                { orderId: order.id, fileKey: file.fileUrl },
                 'Server-side cleanup deleted completed order file',
               );
-            } catch (err: any) {
-              logger.warn({ filePath, err: err.message }, 'Failed to delete file during cleanup');
             }
+          } catch (err: unknown) {
+            logger.warn(
+              { fileKey: file.fileUrl, err: err instanceof Error ? err.message : String(err) },
+              'Failed to delete file during cleanup',
+            );
           }
         }
       }
@@ -47,16 +46,19 @@ export class CleanupService {
             order.orderStatus === OrderStatus.CANCELLED
           ) {
             for (const file of order.files || []) {
-              const filePath = path.join(UPLOAD_DIR, path.basename(file.fileUrl));
-              if (fs.existsSync(filePath)) {
-                try {
-                  fs.unlinkSync(filePath);
+              try {
+                if (await printStorageService.deleteFile(file.fileUrl)) {
                   cleanedCount++;
                   logger.info(
-                    { orderId: order.id, filePath },
+                    { orderId: order.id, fileKey: file.fileUrl },
                     'Server-side cleanup (dev mode) deleted file',
                   );
-                } catch {}
+                }
+              } catch (err: unknown) {
+                logger.warn(
+                  { fileKey: file.fileUrl, err: err instanceof Error ? err.message : String(err) },
+                  'Failed to delete file during dev cleanup',
+                );
               }
             }
           }

@@ -1,4 +1,4 @@
-FROM node:20-alpine AS build
+FROM node:22-alpine AS build
 
 WORKDIR /app
 
@@ -9,7 +9,7 @@ RUN npm ci
 COPY . .
 RUN npm run prisma:generate && npm run build
 
-FROM node:20-alpine AS production-dependencies
+FROM node:22-alpine AS production-dependencies
 
 WORKDIR /app
 
@@ -17,7 +17,7 @@ COPY package*.json ./
 COPY prisma ./prisma
 RUN npm ci --omit=dev
 
-FROM node:20-alpine AS production
+FROM node:22-alpine AS production
 
 WORKDIR /app
 ENV NODE_ENV=production
