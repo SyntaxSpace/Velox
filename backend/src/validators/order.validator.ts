@@ -23,6 +23,11 @@ export const shopOrdersParamSchema = z.object({
   shopId: z.string().min(1, 'Invalid shop ID'),
 });
 
+export const shopOrderParamsSchema = z.object({
+  shopId: z.string().uuid('Invalid shop ID'),
+  orderId: z.string().uuid('Invalid order ID'),
+});
+
 export type CreateOrderBody = z.infer<typeof createOrderBodySchema>;
 
 export const cancelOrderParamSchema = z.object({

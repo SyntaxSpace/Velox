@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import { shopService } from '../services/shop.service';
 import { queueService } from '../services/queue.service';
 import { adminService } from '../services/admin.service';
+import { paymentService } from '../services/payment.service';
 import { sendSuccess } from '../utils/api-response';
 import { AppError } from '../utils/app-error';
 
@@ -185,6 +186,23 @@ export class ShopController {
         limit,
       );
       sendSuccess(res, data, 'Shop transactions retrieved');
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async confirmCounterPayment(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      if (!req.user?.userId) throw AppError.unauthorized('Authentication required');
+      const { shopId, orderId } = req.params;
+      const result = await paymentService.confirmCounterPayment(orderId, shopId, req.user.userId);
+      sendSuccess(
+        res,
+        result,
+        result.alreadyConfirmed
+          ? 'Counter payment was already confirmed'
+          : 'Counter payment confirmed and order added to the queue',
+      );
     } catch (error) {
       next(error);
     }

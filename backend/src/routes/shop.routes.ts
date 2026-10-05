@@ -8,6 +8,7 @@ import {
   createShopBodySchema,
   updateShopBodySchema,
 } from '../validators/shop.validator';
+import { shopOrderParamsSchema } from '../validators/order.validator';
 
 const router = Router();
 
@@ -76,6 +77,26 @@ router.get(
 
 // GET /shops/:shopId/orders - Get shop orders history
 router.get('/:shopId/orders', authenticate, requireShopOwner('shopId'), shopController.getOrders);
+
+// Confirm collected cash and enqueue a counter-payment order.
+router.post(
+  '/:shopId/orders/:orderId/counter-payment/confirm',
+  authenticate,
+  authorize('SHOP_OWNER', 'OWNER'),
+  validate(shopOrderParamsSchema, 'params'),
+  requireShopOwner('shopId'),
+  shopController.confirmCounterPayment,
+);
+
+// Dispatch only the oldest eligible order to an online Agent and compatible printer.
+router.post(
+  '/:shopId/orders/:orderId/dispatch',
+  authenticate,
+  authorize('SHOP_OWNER', 'OWNER'),
+  validate(shopOrderParamsSchema, 'params'),
+  requireShopOwner('shopId'),
+  queueController.dispatchNextOrder,
+);
 
 // GET /shops/:shopId/transactions - Get shop transactions
 router.get(

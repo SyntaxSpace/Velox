@@ -22,6 +22,9 @@ The Velox Shop Owner Dashboard provides real-world print counter functionality w
 6. **Transactions & Ledgers (`/shop-owner/transactions`)**:
    Validates financial data per shop, securely isolating transactions so Owners only see their own revenue streams.
 
+7. **Counter payment and dispatch**:
+   Counter-payment orders remain pending until the Shop Owner physically receives the cash and confirms it from that order's details page. Confirmation records the payment, ledger transaction, and audit events atomically, then moves the order into the queue. The owner can dispatch only the oldest paid order, and only when a recent Agent heartbeat and an online B&W printer are present. For the current P1108 demo profile, dispatch accepts B&W, A4, single-sided documents and sends one job at a time. The development payment simulator is not available in production.
+
 ## Technical Architecture
 
 - **Backend Integration**: Driven by `ShopController` and `OrderService`. Enforces strict `SHOP_OWNER` RBAC authorization rules so operators and owners only query rows associated with their `shopId`.

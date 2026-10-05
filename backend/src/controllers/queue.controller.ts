@@ -4,6 +4,17 @@ import { sendSuccess } from '../utils/api-response';
 import { AppError } from '../utils/app-error';
 
 export class QueueController {
+  async dispatchNextOrder(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      if (!req.user?.userId) throw AppError.unauthorized('Authentication required');
+      const { shopId, orderId } = req.params;
+      const result = await queueService.dispatchNextOrder(orderId, shopId, req.user.userId);
+      sendSuccess(res, result, 'Order dispatched to the shop printer');
+    } catch (error) {
+      next(error);
+    }
+  }
+
   async getShopQueue(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const { shopId } = req.params;

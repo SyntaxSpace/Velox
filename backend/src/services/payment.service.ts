@@ -1,12 +1,120 @@
-import { OrderStatus, PaymentStatus, PaymentMethod } from '@prisma/client';
+import { OrderStatus, PaymentStatus, PaymentMethod, Prisma } from '@prisma/client';
 import { prisma } from '../database/prisma';
 import { paymentRepository } from '../repositories/payment.repository';
 import { logger } from '../config/logger';
 import { AppError } from '../utils/app-error';
 import { validateTransition, OrderEventType } from './order-state-machine';
+import { emitToClientShop } from '../socket';
 import crypto from 'crypto';
 
 export class PaymentService {
+  async confirmCounterPayment(
+    orderId: string,
+    shopId: string,
+    ownerId: string,
+  ): Promise<{ orderId: string; orderStatus: OrderStatus; alreadyConfirmed: boolean }> {
+    const result = await prisma.$transaction(async (tx) => {
+      // Serialize cash confirmation and dispatch decisions for this shop.
+      const shops = await tx.$queryRaw<Array<{ id: string }>>(
+        Prisma.sql`SELECT id FROM shops WHERE id = ${shopId}::uuid FOR UPDATE`,
+      );
+      if (shops.length === 0) throw AppError.notFound('Shop not found');
+
+      const shop = await tx.shop.findUnique({
+        where: { id: shopId },
+        select: { ownerId: true, status: true },
+      });
+      if (!shop || shop.ownerId !== ownerId) {
+        throw AppError.forbidden('You do not own this shop');
+      }
+      if (shop.status !== 'ACTIVE') {
+        throw AppError.conflict('This shop is not active');
+      }
+
+      const order = await tx.order.findUnique({
+        where: { id: orderId },
+        include: { payment: true },
+      });
+      if (!order) throw AppError.notFound('Order not found');
+      if (order.shopId !== shopId) {
+        throw AppError.forbidden('This order does not belong to your shop');
+      }
+
+      const payment = order.payment;
+      if (!payment || payment.method !== PaymentMethod.COUNTER) {
+        throw AppError.badRequest('Only pay-at-counter orders can be confirmed here');
+      }
+
+      if (
+        payment.status === PaymentStatus.SUCCESS &&
+        order.paymentStatus === PaymentStatus.SUCCESS &&
+        order.orderStatus !== OrderStatus.PENDING
+      ) {
+        return { orderId, orderStatus: order.orderStatus, alreadyConfirmed: true };
+      }
+
+      if (
+        payment.status !== PaymentStatus.PENDING ||
+        order.paymentStatus !== PaymentStatus.PENDING ||
+        order.orderStatus !== OrderStatus.PENDING
+      ) {
+        throw AppError.conflict('This order is no longer awaiting counter payment');
+      }
+
+      validateTransition(OrderStatus.PENDING, OrderStatus.WAITING);
+      const paymentUpdate = await tx.payment.updateMany({
+        where: { id: payment.id, method: PaymentMethod.COUNTER, status: PaymentStatus.PENDING },
+        data: { status: PaymentStatus.SUCCESS },
+      });
+      if (paymentUpdate.count !== 1) {
+        throw AppError.conflict('Counter payment was already processed');
+      }
+
+      const orderUpdate = await tx.order.updateMany({
+        where: {
+          id: orderId,
+          shopId,
+          orderStatus: OrderStatus.PENDING,
+          paymentStatus: PaymentStatus.PENDING,
+        },
+        data: { paymentStatus: PaymentStatus.SUCCESS, orderStatus: OrderStatus.WAITING },
+      });
+      if (orderUpdate.count !== 1) {
+        throw AppError.conflict('Order state changed before payment confirmation');
+      }
+
+      await tx.transaction.create({
+        data: {
+          shopId,
+          orderId,
+          amount: payment.amount,
+          paymentMethod: PaymentMethod.COUNTER,
+        },
+      });
+      await tx.orderEvent.createMany({
+        data: [
+          { orderId, event: OrderEventType.COUNTER_PAYMENT_CONFIRMED },
+          { orderId, event: OrderEventType.PAYMENT_SUCCESS },
+          { orderId, event: OrderEventType.QUEUE_ENTERED },
+        ],
+      });
+
+      return { orderId, orderStatus: OrderStatus.WAITING, alreadyConfirmed: false };
+    });
+
+    if (!result.alreadyConfirmed) {
+      emitToClientShop(shopId, 'order.status.changed', {
+        orderId,
+        orderStatus: result.orderStatus,
+        paymentStatus: PaymentStatus.SUCCESS,
+      });
+      emitToClientShop(shopId, 'queue.updated', { shopId, orderId });
+      logger.info({ orderId, shopId, ownerId }, 'Counter payment confirmed by shop owner');
+    }
+
+    return result;
+  }
+
   /**
    * Process a successful payment — transitions order from PENDING to WAITING.
    * Used by development simulation endpoint.

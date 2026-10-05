@@ -10,6 +10,27 @@ import { OrderStatus } from '@prisma/client';
 let globalIo: SocketIOServer | null = null;
 let globalAgentNamespace: any = null;
 
+function tokenFromSocket(socket: Socket): string | undefined {
+  const authToken = socket.handshake.auth?.token;
+  if (typeof authToken === 'string') return authToken;
+
+  const authorization = socket.handshake.headers.authorization;
+  if (authorization?.startsWith('Bearer ')) return authorization.slice('Bearer '.length);
+  return undefined;
+}
+
+export async function isAgentConnected(deviceId: string): Promise<boolean> {
+  if (!globalAgentNamespace) return false;
+  const sockets = await globalAgentNamespace.in(`device:${deviceId}`).fetchSockets();
+  return sockets.length > 0;
+}
+
+export function emitToAgentDevice(deviceId: string, event: string, data: any): void {
+  if (globalAgentNamespace && deviceId) {
+    globalAgentNamespace.to(`device:${deviceId}`).emit(event, data);
+  }
+}
+
 export function emitToAgentShop(shopId: string, event: string, data: any): void {
   if (globalAgentNamespace) {
     if (shopId) {
@@ -36,28 +57,27 @@ export function initializeSocket(httpServer: HttpServer): SocketIOServer {
   const agentNamespace = io.of('/agent');
   globalAgentNamespace = agentNamespace;
 
-  // Authenticate socket connections on /agent namespace
+  // Agent sockets must carry the device token issued by /agent/login.
   agentNamespace.use((socket, next) => {
-    const token =
-      socket.handshake.auth?.token ||
-      (socket.handshake.headers.authorization?.startsWith('Bearer ')
-        ? socket.handshake.headers.authorization.split(' ')[1]
-        : null);
+    const token = tokenFromSocket(socket);
 
-    if (token) {
-      try {
-        const payload = verifyAccessToken(token);
-        if (payload.role === 'AGENT' || payload.role === 'OPERATOR' || payload.role === 'OWNER') {
-          socket.data.user = payload;
-          return next();
-        }
-      } catch (err) {
-        logger.warn({ socketId: socket.id }, 'Agent socket auth invalid token');
-      }
+    if (!token) {
+      next(new Error('Agent authentication required'));
+      return;
     }
 
-    // Allow connection but require explicit 'agent.auth' or 'agent.register' handshake
-    next();
+    try {
+      const payload = verifyAccessToken(token);
+      if (payload.role !== 'AGENT' || !payload.shopId || !payload.deviceId) {
+        next(new Error('A valid device token is required'));
+        return;
+      }
+      socket.data.user = payload;
+      next();
+    } catch (err) {
+      logger.warn({ socketId: socket.id }, 'Agent socket auth invalid token');
+      next(new Error('Invalid or expired agent token'));
+    }
   });
 
   agentNamespace.on('connection', (socket: Socket) => {
@@ -68,31 +88,27 @@ export function initializeSocket(httpServer: HttpServer): SocketIOServer {
       'agent.register',
       async (data: { shopId: string; deviceId: string; token?: string }) => {
         try {
-          let shopId = data.shopId;
-          let deviceId = data.deviceId;
-
-          // If token provided, verify it
-          if (data.token) {
-            try {
-              const payload = verifyAccessToken(data.token);
-              if (payload.shopId && payload.shopId !== shopId) {
-                logger.warn(
-                  { socketId: socket.id, shopId, tokenShopId: payload.shopId },
-                  'Shop mismatch in agent register',
-                );
-                socket.emit('agent.error', { message: 'Shop ID does not match token' });
-                return;
-              }
-              if (payload.deviceId) deviceId = payload.deviceId;
-            } catch (e) {
-              logger.warn({ socketId: socket.id }, 'Invalid token in agent.register');
-              socket.emit('agent.error', { message: 'Invalid token' });
-              return;
-            }
+          const payload = socket.data.user;
+          if (
+            !payload ||
+            !data ||
+            data.shopId !== payload.shopId ||
+            data.deviceId !== payload.deviceId ||
+            (data.token && data.token !== tokenFromSocket(socket))
+          ) {
+            logger.warn({ socketId: socket.id }, 'Agent registration did not match its token');
+            socket.emit('agent.error', { message: 'Device registration does not match its token' });
+            socket.disconnect(true);
+            return;
           }
 
+          const shopId = payload.shopId as string;
+          const deviceId = payload.deviceId as string;
+
+          await agentService.recordHeartbeat(shopId, deviceId);
           socket.data.shopId = shopId;
           socket.data.deviceId = deviceId;
+          socket.data.registered = true;
 
           // Join shop room and dedicated device room
           socket.join(`shop:${shopId}`);
@@ -100,9 +116,6 @@ export function initializeSocket(httpServer: HttpServer): SocketIOServer {
           if (process.env.NODE_ENV === 'development' || !process.env.DATABASE_URL) {
             socket.join('all-dev-shops');
           }
-
-          // Update device heartbeat in DB
-          await agentService.recordHeartbeat(shopId, deviceId).catch(() => {});
 
           logger.info(
             { socketId: socket.id, shopId, deviceId },
@@ -112,14 +125,16 @@ export function initializeSocket(httpServer: HttpServer): SocketIOServer {
           socket.emit('agent.registered', { success: true, shopId, deviceId });
         } catch (err: any) {
           logger.error({ err: err.message }, 'Error in agent.register handler');
+          socket.emit('agent.error', { message: 'Agent registration failed' });
+          socket.disconnect(true);
         }
       },
     );
 
     // Agent Heartbeat (every 30s)
-    socket.on('agent.heartbeat', async (data: { shopId?: string; deviceId?: string }) => {
-      const shopId = data?.shopId || socket.data.shopId;
-      const deviceId = data?.deviceId || socket.data.deviceId;
+    socket.on('agent.heartbeat', async () => {
+      const shopId = socket.data.registered ? socket.data.shopId : undefined;
+      const deviceId = socket.data.registered ? socket.data.deviceId : undefined;
 
       if (shopId && deviceId) {
         try {
@@ -136,8 +151,8 @@ export function initializeSocket(httpServer: HttpServer): SocketIOServer {
     socket.on(
       'agent.printers',
       async (data: { shopId?: string; deviceId?: string; printers: any[] }) => {
-        const shopId = data?.shopId || socket.data.shopId;
-        const deviceId = data?.deviceId || socket.data.deviceId;
+        const shopId = socket.data.registered ? socket.data.shopId : undefined;
+        const deviceId = socket.data.registered ? socket.data.deviceId : undefined;
 
         if (shopId && deviceId && data.printers) {
           try {
@@ -152,12 +167,19 @@ export function initializeSocket(httpServer: HttpServer): SocketIOServer {
 
     // Job Lifecycle Events reported by Agent
     socket.on('job.received', (data: { orderId: string }) => {
-      logger.info({ orderId: data.orderId, socketId: socket.id }, 'Agent received job');
+      if (socket.data.registered) {
+        logger.info({ orderId: data.orderId, socketId: socket.id }, 'Agent received job');
+      }
     });
 
     socket.on('job.downloading', async (data: { orderId: string }) => {
+      if (!socket.data.registered) return;
       try {
-        await queueService.transitionOrder(data.orderId, OrderStatus.DOWNLOADING);
+        await queueService.transitionOrder(
+          data.orderId,
+          OrderStatus.DOWNLOADING,
+          socket.data.shopId,
+        );
         logger.info({ orderId: data.orderId }, 'Order transitioned to DOWNLOADING');
       } catch (e: any) {
         logger.error(
@@ -168,12 +190,15 @@ export function initializeSocket(httpServer: HttpServer): SocketIOServer {
     });
 
     socket.on('job.ready', (data: { orderId: string }) => {
-      logger.info({ orderId: data.orderId }, 'Agent verified file and is ready to print');
+      if (socket.data.registered) {
+        logger.info({ orderId: data.orderId }, 'Agent verified file and is ready to print');
+      }
     });
 
     socket.on('job.printing', async (data: { orderId: string }) => {
+      if (!socket.data.registered) return;
       try {
-        await queueService.transitionOrder(data.orderId, OrderStatus.PRINTING);
+        await queueService.transitionOrder(data.orderId, OrderStatus.PRINTING, socket.data.shopId);
         logger.info({ orderId: data.orderId }, 'Order transitioned to PRINTING');
       } catch (e: any) {
         logger.error({ err: e.message, orderId: data.orderId }, 'Failed to transition to PRINTING');
@@ -181,8 +206,9 @@ export function initializeSocket(httpServer: HttpServer): SocketIOServer {
     });
 
     socket.on('job.completed', async (data: { orderId: string }) => {
+      if (!socket.data.registered) return;
       try {
-        await queueService.transitionOrder(data.orderId, OrderStatus.COMPLETED);
+        await queueService.transitionOrder(data.orderId, OrderStatus.COMPLETED, socket.data.shopId);
         logger.info({ orderId: data.orderId }, 'Order transitioned to COMPLETED');
       } catch (e: any) {
         logger.error(
@@ -193,8 +219,9 @@ export function initializeSocket(httpServer: HttpServer): SocketIOServer {
     });
 
     socket.on('job.failed', async (data: { orderId: string; error?: string }) => {
+      if (!socket.data.registered) return;
       try {
-        await queueService.transitionOrder(data.orderId, OrderStatus.FAILED);
+        await queueService.transitionOrder(data.orderId, OrderStatus.FAILED, socket.data.shopId);
         logger.warn({ orderId: data.orderId, error: data.error }, 'Order transitioned to FAILED');
       } catch (e: any) {
         logger.error({ err: e.message, orderId: data.orderId }, 'Failed to transition to FAILED');

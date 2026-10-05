@@ -243,7 +243,7 @@ export default function OrderStatusPage({ params }: { params: Promise<{ orderId:
 
         {/* Actions */}
         <div className="space-y-3">
-          {order.orderStatus === 'PENDING' && (
+          {process.env.NODE_ENV === 'development' && order.orderStatus === 'PENDING' && (
             <button
               onClick={() => simulatePaymentMutation.mutate()}
               disabled={simulatePaymentMutation.isPending}

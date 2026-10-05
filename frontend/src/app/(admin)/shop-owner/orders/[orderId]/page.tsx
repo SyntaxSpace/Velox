@@ -1,17 +1,32 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { use, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useQuery } from '@tanstack/react-query';
-import { getMyShops, ShopData } from '@/services/shop.service';
+import axios from 'axios';
+import { useMutation, useQuery } from '@tanstack/react-query';
+import { confirmCounterPayment, dispatchShopOrder } from '@/services/shop.service';
 import { api } from '@/lib/api';
 import { useAuthStore } from '@/store/auth';
 import { ArrowLeft, Loader2, FileText, Printer, CreditCard, Clock, Activity } from 'lucide-react';
 
-export default function ShopOwnerOrderDetailPage({ params }: { params: { orderId: string } }) {
+function getRequestErrorMessage(error: unknown): string {
+  if (axios.isAxiosError(error)) {
+    const message = error.response?.data?.message;
+    if (typeof message === 'string') return message;
+  }
+  return 'The request could not be completed. Please try again.';
+}
+
+export default function ShopOwnerOrderDetailPage({
+  params,
+}: {
+  params: Promise<{ orderId: string }>;
+}) {
   const router = useRouter();
   const { isAuthenticated } = useAuthStore();
+  const { orderId } = use(params);
+  const [actionError, setActionError] = useState<string | null>(null);
 
   useEffect(() => {
     const localToken = typeof window !== 'undefined' ? localStorage.getItem('velox_token') : null;
@@ -20,20 +35,40 @@ export default function ShopOwnerOrderDetailPage({ params }: { params: { orderId
     }
   }, [isAuthenticated, router]);
 
-  const { data: shops } = useQuery<ShopData[]>({
-    queryKey: ['ownerShops'],
-    queryFn: getMyShops,
-  });
-
-  const assignedShop = shops && shops.length > 0 ? shops[0] : null;
-
-  const { data: order, isLoading } = useQuery({
-    queryKey: ['orderDetails', params.orderId],
+  const {
+    data: order,
+    isLoading,
+    error,
+    refetch,
+  } = useQuery({
+    queryKey: ['orderDetails', orderId],
     queryFn: async () => {
-      const res = await api.get(`/orders/${params.orderId}`);
+      const res = await api.get(`/orders/${orderId}`);
       return res.data.data;
     },
-    enabled: !!assignedShop?.id,
+    enabled: !!orderId,
+    refetchInterval: (query) =>
+      ['WAITING', 'ASSIGNED', 'DOWNLOADING', 'PRINTING'].includes(query.state.data?.orderStatus)
+        ? 5000
+        : false,
+  });
+
+  const confirmPaymentMutation = useMutation({
+    mutationFn: () => confirmCounterPayment(order.shopId, orderId),
+    onSuccess: async () => {
+      setActionError(null);
+      await refetch();
+    },
+    onError: (error: unknown) => setActionError(getRequestErrorMessage(error)),
+  });
+
+  const dispatchMutation = useMutation({
+    mutationFn: () => dispatchShopOrder(order.shopId, orderId),
+    onSuccess: async () => {
+      setActionError(null);
+      await refetch();
+    },
+    onError: (error: unknown) => setActionError(getRequestErrorMessage(error)),
   });
 
   if (isLoading) {
@@ -48,7 +83,9 @@ export default function ShopOwnerOrderDetailPage({ params }: { params: { orderId
   if (!order) {
     return (
       <div className="min-h-screen bg-surface flex flex-col items-center justify-center gap-3">
-        <p className="text-xs text-muted">Order not found.</p>
+        <p className="text-xs text-muted">
+          {error ? getRequestErrorMessage(error) : 'Order not found.'}
+        </p>
         <Link href="/shop-owner/orders" className="text-primary hover:underline">
           Return to orders
         </Link>
@@ -219,6 +256,67 @@ export default function ShopOwnerOrderDetailPage({ params }: { params: { orderId
             </div>
           </div>
         </div>
+
+        {(order.orderStatus === 'PENDING' && payment?.method === 'COUNTER') ||
+        (order.orderStatus === 'WAITING' && order.paymentStatus === 'SUCCESS') ? (
+          <div className="border border-border bg-surface/50 rounded-2xl p-5 shadow-sm mb-6">
+            <h2 className="text-sm font-bold mb-2">Counter order actions</h2>
+            {order.orderStatus === 'PENDING' && payment?.method === 'COUNTER' && (
+              <>
+                <p className="text-xs text-muted mb-4">
+                  Confirm only after you have received the cash. This moves the order into the print
+                  queue.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const amount = Number(order.totalPrice || payment.amount || 0).toFixed(2);
+                    if (
+                      window.confirm(`Confirm that you received ₹${amount} for ${order.orderCode}?`)
+                    ) {
+                      confirmPaymentMutation.mutate();
+                    }
+                  }}
+                  disabled={confirmPaymentMutation.isPending || dispatchMutation.isPending}
+                  className="inline-flex items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground disabled:opacity-50"
+                >
+                  {confirmPaymentMutation.isPending ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <CreditCard className="h-4 w-4" />
+                  )}
+                  {confirmPaymentMutation.isPending ? 'Confirming...' : 'Confirm cash received'}
+                </button>
+              </>
+            )}
+            {order.orderStatus === 'WAITING' && order.paymentStatus === 'SUCCESS' && (
+              <>
+                <p className="text-xs text-muted mb-4">
+                  Dispatch is limited to the oldest paid order and requires the Agent and B&W
+                  printer to be online. This demo supports single-sided A4 jobs.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => dispatchMutation.mutate()}
+                  disabled={dispatchMutation.isPending || confirmPaymentMutation.isPending}
+                  className="inline-flex items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground disabled:opacity-50"
+                >
+                  {dispatchMutation.isPending ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Printer className="h-4 w-4" />
+                  )}
+                  {dispatchMutation.isPending ? 'Dispatching...' : 'Send to printer'}
+                </button>
+              </>
+            )}
+            {actionError && (
+              <p role="alert" className="mt-3 text-sm text-red-600">
+                {actionError}
+              </p>
+            )}
+          </div>
+        ) : null}
 
         {/* Event Timeline */}
         {order.events && order.events.length > 0 && (

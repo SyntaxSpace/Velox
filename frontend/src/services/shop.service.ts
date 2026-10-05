@@ -151,6 +151,14 @@ export async function getShopOrders(
   return response.data.data;
 }
 
+export async function confirmCounterPayment(shopId: string, orderId: string): Promise<void> {
+  await api.post(`/shops/${shopId}/orders/${orderId}/counter-payment/confirm`);
+}
+
+export async function dispatchShopOrder(shopId: string, orderId: string): Promise<void> {
+  await api.post(`/shops/${shopId}/orders/${orderId}/dispatch`);
+}
+
 export async function getShopTransactions(
   shopId: string,
   params?: { page?: number; limit?: number },

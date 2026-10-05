@@ -69,20 +69,22 @@ export default function OrderSuccessPage() {
         <div className="space-y-3 mb-6">
           {orderId && (
             <>
-              <button
-                onClick={() => simulatePaymentMutation.mutate()}
-                disabled={simulatePaymentMutation.isPending}
-                className="w-full bg-black text-white rounded-xl py-3.5 font-medium flex items-center justify-center gap-2 hover:bg-gray-900 transition-colors disabled:opacity-50"
-              >
-                {simulatePaymentMutation.isPending ? (
-                  <Loader2 className="h-5 w-5 animate-spin" />
-                ) : (
-                  <>
-                    <CreditCard className="h-5 w-5" />
-                    Simulate Payment (Dev)
-                  </>
-                )}
-              </button>
+              {process.env.NODE_ENV === 'development' && (
+                <button
+                  onClick={() => simulatePaymentMutation.mutate()}
+                  disabled={simulatePaymentMutation.isPending}
+                  className="w-full bg-black text-white rounded-xl py-3.5 font-medium flex items-center justify-center gap-2 hover:bg-gray-900 transition-colors disabled:opacity-50"
+                >
+                  {simulatePaymentMutation.isPending ? (
+                    <Loader2 className="h-5 w-5 animate-spin" />
+                  ) : (
+                    <>
+                      <CreditCard className="h-5 w-5" />
+                      Simulate Payment (Dev)
+                    </>
+                  )}
+                </button>
+              )}
 
               <button
                 onClick={() => router.push(`/order/${orderId}`)}

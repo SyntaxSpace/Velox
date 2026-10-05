@@ -35,6 +35,7 @@ export default function ShopOwnerQueuePage() {
     queryKey: ['shopQueue', assignedShop?.id],
     queryFn: () => getShopQueue(assignedShop!.id),
     enabled: !!assignedShop?.id,
+    refetchInterval: 5000,
   });
 
   useEffect(() => {
@@ -45,7 +46,7 @@ export default function ShopOwnerQueuePage() {
       });
 
       newSocket.on('connect', () => {
-        newSocket.emit('join.shop', { shopId: assignedShop.id });
+        newSocket.emit('join.shop', assignedShop.id);
       });
 
       newSocket.on('queue.updated', () => {

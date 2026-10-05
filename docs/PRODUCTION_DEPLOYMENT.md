@@ -116,10 +116,10 @@ The current Agent already supports environment overrides. For a shop PC, configu
 1. Apply all migrations to the production Supabase project and verify the tables are present with RLS enabled. The current Supabase project already has all checked-in migrations applied.
 2. Bootstrap the first partner, then sign in and create one production shop.
 3. Confirm the API health response, HTTPS REST requests, and a Socket.IO connection from the deployed frontend.
-4. Upload a non-sensitive test PDF, verify it appears in the private bucket, verify the Agent downloads it through the authenticated API, then verify automatic bucket cleanup after completion/cancellation.
+4. Upload a non-sensitive, one-page B&W A4 simplex test PDF. In Shop Portal order details, confirm cash only after it has actually been received, then dispatch the oldest paid order. Confirm the Agent receives the job and the printer produces one page; verify the private bucket object is removed after completion/cancellation.
 5. Restart the backend once while no print job is active and confirm the API, database status, and Agent reconnect successfully.
 
-The Supabase project exists and all checked-in migrations are applied. The free Render service plus private Supabase Storage can support a low-volume real-printing demo, but cold starts/restarts and limited memory make it unsuitable for unattended production; upgrade hosting when reliability matters. The release still needs the private bucket, a Vercel project and production origin, production secrets configured in Render, and the first partner account. This milestone does not make online customer payments available; the existing development/counter payment flow remains in place.
+The Supabase project exists and all checked-in migrations are applied. The configured backend host plus private Supabase Storage can support a low-volume real-printing demo, but limited free-tier resources may affect reliability; upgrade hosting when reliability matters. Production cash-at-counter orders require an authenticated Shop Owner confirmation. This does not integrate an online payment provider; the development payment simulator remains local-development-only.
 
 ## Local development
 
