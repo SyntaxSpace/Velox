@@ -1,4 +1,5 @@
 FROM node:22-alpine AS build
+RUN apk add --no-cache openssl
 
 WORKDIR /app
 
@@ -10,6 +11,7 @@ COPY . .
 RUN npm run prisma:generate && npm run build
 
 FROM node:22-alpine AS production-dependencies
+RUN apk add --no-cache openssl
 
 WORKDIR /app
 
@@ -18,6 +20,7 @@ COPY prisma ./prisma
 RUN npm ci --omit=dev
 
 FROM node:22-alpine AS production
+RUN apk add --no-cache openssl
 
 WORKDIR /app
 ENV NODE_ENV=production
