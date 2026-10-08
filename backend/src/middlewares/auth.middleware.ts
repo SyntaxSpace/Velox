@@ -138,6 +138,14 @@ export function requireShopOwner(paramName = 'shopId') {
         return;
       }
 
+      if (req.user.role === 'AGENT') {
+        if (req.user.shopId !== shop.id) {
+          throw AppError.forbidden('Access denied: Agent is not bound to this shop');
+        }
+        next();
+        return;
+      }
+
       throw AppError.forbidden('Insufficient permissions: Shop Owner or Partner role required');
     } catch (err) {
       next(err);
