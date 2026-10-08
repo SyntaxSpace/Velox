@@ -154,13 +154,41 @@ export function initializeSocket(httpServer: HttpServer): SocketIOServer {
         const shopId = socket.data.registered ? socket.data.shopId : undefined;
         const deviceId = socket.data.registered ? socket.data.deviceId : undefined;
 
-        if (shopId && deviceId && data.printers) {
-          try {
-            const synced = await agentService.syncPrinters(shopId, deviceId, data.printers);
-            socket.emit('agent.printers.synced', { count: synced.synced });
-          } catch (e: any) {
-            logger.error({ err: e.message }, 'Failed to sync printers from socket');
-          }
+        if (!shopId || !deviceId) {
+          logger.warn(
+            { socketId: socket.id },
+            'Received agent.printers before registration completed',
+          );
+          socket.emit('agent.printers.error', {
+            message: 'Agent registration required before printer sync',
+          });
+          return;
+        }
+
+        if (!data || !Array.isArray(data.printers)) {
+          logger.warn({ socketId: socket.id }, 'Invalid printers payload format');
+          socket.emit('agent.printers.error', {
+            message: 'Invalid printers payload format',
+          });
+          return;
+        }
+
+        try {
+          const synced = await agentService.syncPrinters(shopId, deviceId, data.printers);
+          socket.emit('agent.printers.synced', {
+            count: synced.synced,
+            shopId,
+            deviceId,
+          });
+          logger.info(
+            { shopId, deviceId, count: synced.synced },
+            'Printers synchronized successfully via WebSocket',
+          );
+        } catch (e: any) {
+          logger.error({ err: e.message, shopId, deviceId }, 'Failed to sync printers from socket');
+          socket.emit('agent.printers.error', {
+            message: e.message || 'Failed to sync printers',
+          });
         }
       },
     );

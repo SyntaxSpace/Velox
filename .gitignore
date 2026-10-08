@@ -87,3 +87,5 @@ windows-agent/logs/
 windows-agent/downloads/
 windows-agent/tests/**/bin/
 windows-agent/tests/**/obj/
+installer/publish/
+installer/output/

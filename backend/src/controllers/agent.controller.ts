@@ -13,6 +13,16 @@ export class AgentController {
     }
   }
 
+  async pair(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const { pairingCode, deviceName, osInfo } = req.body;
+      const result = await agentService.pairDeviceWithCode(pairingCode, deviceName, osInfo);
+      sendSuccess(res, result, 'Agent device paired successfully', 201);
+    } catch (error) {
+      next(error);
+    }
+  }
+
   async heartbeat(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       if (!req.user || !req.user.shopId || !req.user.deviceId) {

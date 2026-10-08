@@ -67,6 +67,15 @@ router.get(
   shopController.getShopPrinters,
 );
 
+// POST /shops/:shopId/pairing-code - Generate agent pairing code (Owner/Partner/Admin)
+router.post(
+  '/:shopId/pairing-code',
+  authenticate,
+  requireShopOwner('shopId'),
+  validate(shopIdParamSchema, 'params'),
+  shopController.generatePairingCode,
+);
+
 // GET /shops/:shopId/dashboard - Get shop owner KPIs
 router.get(
   '/:shopId/dashboard',

@@ -7,6 +7,9 @@ const router = Router();
 // Device login (public - device authenticates with shopId, deviceId, deviceKey)
 router.post('/login', agentController.login);
 
+// Device pairing (public - device pairs using 6-digit shop pairing code)
+router.post('/pair', agentController.pair);
+
 // Protected agent endpoints (requires AGENT role or shop operator/owner)
 router.use(authenticate);
 router.use(authorize('AGENT', 'OPERATOR', 'OWNER', 'ADMIN'));

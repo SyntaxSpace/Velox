@@ -75,7 +75,129 @@ const devPrinters = new Map<string, any[]>([
   ],
 ]);
 
+interface PairingEntry {
+  shopId: string;
+  code: string;
+  expiresAt: Date;
+}
+
+const activePairingCodes = new Map<string, PairingEntry>();
+
 export class AgentService {
+  /**
+   * Generates a temporary 6-digit pairing code for an authenticated shop owner.
+   */
+  async createPairingCode(shopId: string) {
+    const shop = await prisma.shop.findUnique({
+      where: { id: shopId },
+      select: { id: true, name: true },
+    });
+    if (!shop) {
+      throw AppError.notFound('Shop not found');
+    }
+
+    // Clean up expired codes
+    const now = new Date();
+    for (const [code, entry] of activePairingCodes.entries()) {
+      if (entry.expiresAt < now) {
+        activePairingCodes.delete(code);
+      }
+    }
+
+    // Generate random 6-digit numeric pairing code
+    const code = Math.floor(100000 + Math.random() * 900000).toString();
+    const expiresAt = new Date(Date.now() + 15 * 60 * 1000); // 15 mins
+
+    activePairingCodes.set(code, {
+      shopId: shop.id,
+      code,
+      expiresAt,
+    });
+
+    logger.info({ shopId: shop.id, code, expiresAt }, 'Generated agent pairing code');
+
+    return {
+      pairingCode: code,
+      shopId: shop.id,
+      shopName: shop.name,
+      expiresAt: expiresAt.toISOString(),
+      validForMinutes: 15,
+    };
+  }
+
+  /**
+   * Pairs an agent device using a 6-digit pairing code.
+   * Creates a new unique Device in DB, issues device credentials & JWT token.
+   */
+  async pairDeviceWithCode(pairingCode: string, deviceName?: string, osInfo?: string) {
+    if (!pairingCode || typeof pairingCode !== 'string' || pairingCode.trim().length !== 6) {
+      throw AppError.badRequest('Valid 6-digit pairing code is required');
+    }
+
+    const code = pairingCode.trim();
+    const entry = activePairingCodes.get(code);
+
+    if (!entry) {
+      throw AppError.badRequest('Invalid pairing code');
+    }
+
+    if (entry.expiresAt < new Date()) {
+      activePairingCodes.delete(code);
+      throw AppError.badRequest('Pairing code has expired');
+    }
+
+    // Invalidate code after single use
+    activePairingCodes.delete(code);
+
+    const shop = await prisma.shop.findUnique({
+      where: { id: entry.shopId },
+    });
+    if (!shop) {
+      throw AppError.notFound('Shop associated with pairing code not found');
+    }
+
+    // Generate unique deviceId and deviceKey
+    const cleanShopCode = (
+      shop.name.replace(/[^a-zA-Z0-9]/g, '').substring(0, 3) || 'SHP'
+    ).toUpperCase();
+    const randomHex = crypto.randomBytes(3).toString('hex').toUpperCase();
+    const deviceId = `VELOX-${cleanShopCode}-AGENT-${randomHex}`;
+    const deviceKey = crypto.randomBytes(24).toString('hex');
+    const finalDeviceName = deviceName || `Agent-${cleanShopCode}-${randomHex}`;
+
+    // Create device in DB
+    const device = await prisma.device.create({
+      data: {
+        deviceId,
+        shopId: shop.id,
+        name: finalDeviceName,
+        deviceKey,
+        status: 'ONLINE',
+        lastHeartbeat: new Date(),
+      },
+    });
+
+    const token = generateAgentToken({
+      deviceId: device.deviceId,
+      shopId: shop.id,
+      role: 'AGENT',
+    });
+
+    logger.info(
+      { deviceId: device.deviceId, shopId: shop.id, shopName: shop.name, osInfo },
+      'Device successfully paired with shop via pairing code',
+    );
+
+    return {
+      shopId: shop.id,
+      shopName: shop.name,
+      deviceId: device.deviceId,
+      deviceKey: device.deviceKey,
+      deviceName: device.name,
+      token,
+    };
+  }
+
   getDevPrinters(shopId: string) {
     return devPrinters.get(shopId) || [];
   }

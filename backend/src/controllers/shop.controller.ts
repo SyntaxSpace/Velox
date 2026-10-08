@@ -3,11 +3,22 @@ import { shopService } from '../services/shop.service';
 import { queueService } from '../services/queue.service';
 import { adminService } from '../services/admin.service';
 import { paymentService } from '../services/payment.service';
+import { agentService } from '../services/agent.service';
 import { sendSuccess } from '../utils/api-response';
 import { AppError } from '../utils/app-error';
 
 export class ShopController {
   // ─── Authenticated Owner Endpoints ─────────────────────────────────
+
+  async generatePairingCode(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const { shopId } = req.params;
+      const result = await agentService.createPairingCode(shopId);
+      sendSuccess(res, result, 'Pairing code generated successfully', 201);
+    } catch (error) {
+      next(error);
+    }
+  }
 
   async createShop(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {

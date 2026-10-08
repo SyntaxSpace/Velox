@@ -2,7 +2,16 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { AgentService } from '../src/services/agent.service';
 import { prisma } from '../src/database/prisma';
 import { verifyAccessToken } from '../src/config/jwt';
-import { AppError } from '../utils/app-error';
+import { AppError } from '../src/utils/app-error';
+
+vi.mock('../src/config/logger', () => ({
+  logger: {
+    info: vi.fn(),
+    warn: vi.fn(),
+    error: vi.fn(),
+    debug: vi.fn(),
+  },
+}));
 
 // Mock prisma for unit testing AgentService logic
 vi.mock('../src/database/prisma', () => {
@@ -160,6 +169,129 @@ describe('Agent Service & Device Binding', () => {
           where: expect.objectContaining({ status: 'ONLINE' }),
           data: { status: 'OFFLINE' },
         }),
+      );
+    });
+  });
+
+  describe('syncPrinters', () => {
+    const shopId = '11111111-1111-1111-1111-111111111111';
+    const deviceId = 'agent-dev-001';
+
+    it('should reject printer sync if device belongs to another shop', async () => {
+      vi.mocked(prisma.device.findUnique).mockResolvedValue({
+        id: 'dev-1',
+        deviceId,
+        shopId: 'different-shop-id',
+      } as any);
+
+      await expect(
+        agentService.syncPrinters(shopId, deviceId, [{ name: 'Canon LBP2900' }]),
+      ).rejects.toThrow(/Invalid device for this shop/);
+    });
+
+    it('should upsert printers idempotently without duplicating', async () => {
+      vi.mocked(prisma.device.findUnique).mockResolvedValue({
+        id: 'dev-1',
+        deviceId,
+        shopId,
+      } as any);
+
+      // First printer exists, second is new
+      vi.mocked(prisma.printer.findFirst)
+        .mockResolvedValueOnce({
+          id: 'printer-1',
+          shopId,
+          name: 'Canon LBP2900',
+          printerType: 'BLACK_WHITE',
+          pagesPerMinute: 12,
+        } as any)
+        .mockResolvedValueOnce(null);
+
+      vi.mocked(prisma.printer.update).mockResolvedValue({
+        id: 'printer-1',
+        shopId,
+        name: 'Canon LBP2900',
+        status: 'ONLINE',
+      } as any);
+
+      vi.mocked(prisma.printer.create).mockResolvedValue({
+        id: 'printer-2',
+        shopId,
+        name: 'Microsoft Print to PDF',
+        status: 'ONLINE',
+      } as any);
+
+      const result = await agentService.syncPrinters(shopId, deviceId, [
+        { name: 'Canon LBP2900', printerType: 'BLACK_WHITE' as any, status: 'ONLINE' as any },
+        {
+          name: 'Microsoft Print to PDF',
+          printerType: 'BLACK_WHITE' as any,
+          status: 'ONLINE' as any,
+        },
+      ]);
+
+      expect(result.synced).toBe(2);
+      expect(prisma.printer.update).toHaveBeenCalledTimes(1);
+      expect(prisma.printer.create).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('Cloud Pairing Flow', () => {
+    const testShopId = '33333333-3333-3333-3333-333333333333';
+
+    it('should generate a 6-digit pairing code for a valid shop', async () => {
+      vi.mocked(prisma.shop.findUnique).mockResolvedValue({
+        id: testShopId,
+        name: 'MGM University',
+      } as any);
+
+      const result = await agentService.createPairingCode(testShopId);
+
+      expect(result.pairingCode).toBeDefined();
+      expect(result.pairingCode).toMatch(/^\d{6}$/);
+      expect(result.shopId).toBe(testShopId);
+      expect(result.shopName).toBe('MGM University');
+      expect(result.validForMinutes).toBe(15);
+    });
+
+    it('should pair a new device using the 6-digit pairing code and issue JWT', async () => {
+      vi.mocked(prisma.shop.findUnique).mockResolvedValue({
+        id: testShopId,
+        name: 'MGM University',
+      } as any);
+
+      const pairing = await agentService.createPairingCode(testShopId);
+
+      vi.mocked(prisma.device.create).mockImplementation(async (args: any) => ({
+        id: 'dev-new-uuid',
+        ...args.data,
+      }));
+
+      const paired = await agentService.pairDeviceWithCode(
+        pairing.pairingCode,
+        'Desk PC 01',
+        'Windows 11 Pro',
+      );
+
+      expect(paired.shopId).toBe(testShopId);
+      expect(paired.deviceId).toMatch(/^VELOX-MGM-AGENT-[0-9A-F]{6}$/);
+      expect(paired.deviceKey).toBeDefined();
+      expect(paired.token).toBeDefined();
+
+      const decoded = verifyAccessToken(paired.token);
+      expect(decoded.role).toBe('AGENT');
+      expect(decoded.shopId).toBe(testShopId);
+      expect(decoded.deviceId).toBe(paired.deviceId);
+
+      // Verify code cannot be reused (single-use)
+      await expect(
+        agentService.pairDeviceWithCode(pairing.pairingCode, 'Another PC'),
+      ).rejects.toThrow(/Invalid pairing code/);
+    });
+
+    it('should reject invalid or non-existent pairing code', async () => {
+      await expect(agentService.pairDeviceWithCode('999999', 'Fake PC')).rejects.toThrow(
+        /Invalid pairing code/,
       );
     });
   });
