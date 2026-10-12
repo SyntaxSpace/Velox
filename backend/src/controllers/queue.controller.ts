@@ -8,7 +8,15 @@ export class QueueController {
     try {
       if (!req.user?.userId) throw AppError.unauthorized('Authentication required');
       const { shopId, orderId } = req.params;
-      const result = await queueService.dispatchNextOrder(orderId, shopId, req.user.userId);
+      const preferredPrinter =
+        (req.body && (req.body.printerName || req.body.printerId)) ||
+        ((req.query && (req.query.printerName || req.query.printerId)) as string | undefined);
+      const result = await queueService.dispatchNextOrder(
+        orderId,
+        shopId,
+        req.user.userId,
+        preferredPrinter,
+      );
       sendSuccess(res, result, 'Order dispatched to the shop printer');
     } catch (error) {
       next(error);

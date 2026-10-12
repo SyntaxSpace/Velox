@@ -439,6 +439,19 @@ export class AgentService {
         }
       }
 
+      // Mark printers not present in the current sync as OFFLINE
+      const discoveredNames = printers.map((p) => p.name).filter(Boolean);
+      await prisma.printer.updateMany({
+        where: {
+          shopId,
+          name: { notIn: discoveredNames },
+          status: { not: PrinterStatus.OFFLINE },
+        },
+        data: {
+          status: PrinterStatus.OFFLINE,
+        },
+      });
+
       return { synced: syncedPrinters.length, printers: syncedPrinters };
     } catch (dbErr: any) {
       if (dbErr instanceof AppError) throw dbErr;

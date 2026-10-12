@@ -252,7 +252,23 @@ export function initializeSocket(httpServer: HttpServer): SocketIOServer {
         await queueService.transitionOrder(data.orderId, OrderStatus.FAILED, socket.data.shopId);
         logger.warn({ orderId: data.orderId, error: data.error }, 'Order transitioned to FAILED');
       } catch (e: any) {
-        logger.error({ err: e.message, orderId: data.orderId }, 'Failed to transition to FAILED');
+        logger.warn(
+          { err: e.message, orderId: data.orderId },
+          'Failed to transition to FAILED on initial attempt, retrying...',
+        );
+        try {
+          await new Promise((resolve) => setTimeout(resolve, 250));
+          await queueService.transitionOrder(data.orderId, OrderStatus.FAILED, socket.data.shopId);
+          logger.warn(
+            { orderId: data.orderId, error: data.error },
+            'Order transitioned to FAILED on retry',
+          );
+        } catch (retryErr: any) {
+          logger.error(
+            { err: retryErr.message, orderId: data.orderId },
+            'Failed to transition to FAILED',
+          );
+        }
       }
     });
 

@@ -30,6 +30,7 @@ vi.mock('../src/database/prisma', () => {
         findFirst: vi.fn(),
         create: vi.fn(),
         update: vi.fn(),
+        updateMany: vi.fn(),
       },
       order: {
         findUnique: vi.fn(),
@@ -233,6 +234,55 @@ describe('Agent Service & Device Binding', () => {
       expect(result.synced).toBe(2);
       expect(prisma.printer.update).toHaveBeenCalledTimes(1);
       expect(prisma.printer.create).toHaveBeenCalledTimes(1);
+      expect(prisma.printer.updateMany).toHaveBeenCalledWith({
+        where: {
+          shopId,
+          name: { notIn: ['Canon LBP2900', 'Microsoft Print to PDF'] },
+          status: { not: 'OFFLINE' },
+        },
+        data: {
+          status: 'OFFLINE',
+        },
+      });
+    });
+
+    it('should mark disconnected/ghost printers as OFFLINE when absent from discovered list', async () => {
+      vi.mocked(prisma.device.findUnique).mockResolvedValue({
+        id: 'dev-1',
+        deviceId,
+        shopId,
+      } as any);
+
+      vi.mocked(prisma.printer.findFirst).mockResolvedValue({
+        id: 'p-1018',
+        shopId,
+        name: 'HP LaserJet 1018',
+        status: 'ONLINE',
+      } as any);
+      vi.mocked(prisma.printer.update).mockResolvedValue({
+        id: 'p-1018',
+        shopId,
+        name: 'HP LaserJet 1018',
+        status: 'ONLINE',
+      } as any);
+      vi.mocked(prisma.printer.updateMany).mockResolvedValue({ count: 1 } as any);
+
+      // Only HP LaserJet 1018 is discovered; HP LaserJet Professional P1108 is absent
+      const result = await agentService.syncPrinters(shopId, deviceId, [
+        { name: 'HP LaserJet 1018', printerType: 'BLACK_WHITE' as any, status: 'ONLINE' as any },
+      ]);
+
+      expect(result.synced).toBe(1);
+      expect(prisma.printer.updateMany).toHaveBeenCalledWith({
+        where: {
+          shopId,
+          name: { notIn: ['HP LaserJet 1018'] },
+          status: { not: 'OFFLINE' },
+        },
+        data: {
+          status: 'OFFLINE',
+        },
+      });
     });
   });
 

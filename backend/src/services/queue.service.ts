@@ -296,7 +296,12 @@ export class QueueService {
   /**
    * Assign an order to a printer and dispatch to the Windows Agent.
    */
-  async dispatchNextOrder(orderId: string, shopId: string, ownerId: string) {
+  async dispatchNextOrder(
+    orderId: string,
+    shopId: string,
+    ownerId: string,
+    preferredPrinter?: string,
+  ) {
     const { agentService } = await import('./agent.service');
     const { emitToAgentDevice, emitToClientShop, isAgentConnected } = await import('../socket');
     const ownerShop = await prisma.shop.findUnique({
@@ -412,15 +417,41 @@ export class QueueService {
         throw AppError.conflict('The connected shop Agent changed; retry dispatch');
       }
 
-      const printer = await tx.printer.findFirst({
-        where: {
-          shopId,
-          status: PrinterStatus.ONLINE,
-          printerType: PrinterType.BLACK_WHITE,
-        },
-        orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
-        select: { id: true, name: true },
-      });
+      let printer = null;
+      if (preferredPrinter) {
+        printer = await tx.printer.findFirst({
+          where: {
+            shopId,
+            status: PrinterStatus.ONLINE,
+            printerType: PrinterType.BLACK_WHITE,
+            OR: [{ id: preferredPrinter }, { name: preferredPrinter }],
+          },
+          select: { id: true, name: true },
+        });
+      }
+
+      if (!printer) {
+        printer = await tx.printer.findFirst({
+          where: {
+            shopId,
+            status: PrinterStatus.ONLINE,
+            printerType: PrinterType.BLACK_WHITE,
+            name: {
+              notIn: [
+                'Fax',
+                'Microsoft Print to PDF',
+                'Microsoft XPS Document Writer',
+                'Send To OneNote 2016',
+                'OneNote (Desktop)',
+                'OneNote (Desktop) - Protected',
+              ],
+            },
+          },
+          orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+          select: { id: true, name: true },
+        });
+      }
+
       if (!printer) {
         throw AppError.conflict('No online B&W printer is registered for this shop');
       }
