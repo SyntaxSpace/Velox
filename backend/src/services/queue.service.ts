@@ -436,6 +436,18 @@ export class QueueService {
             shopId,
             status: PrinterStatus.ONLINE,
             printerType: PrinterType.BLACK_WHITE,
+            name: { contains: '1018' },
+          },
+          select: { id: true, name: true },
+        });
+      }
+
+      if (!printer) {
+        printer = await tx.printer.findFirst({
+          where: {
+            shopId,
+            status: PrinterStatus.ONLINE,
+            printerType: PrinterType.BLACK_WHITE,
             name: {
               notIn: [
                 'Fax',
@@ -444,6 +456,8 @@ export class QueueService {
                 'Send To OneNote 2016',
                 'OneNote (Desktop)',
                 'OneNote (Desktop) - Protected',
+                'MF240 Series',
+                'Canon MF240 Series UFRII LT',
               ],
             },
           },
@@ -540,9 +554,20 @@ export class QueueService {
         throw AppError.forbidden('Specified printer does not belong to this shop');
       }
     } else {
-      // Pick first available online printer
-      const defaultPrinter = shopPrinters.find((p) => p.status === 'ONLINE') || shopPrinters[0];
-      selectedPrinterName = defaultPrinter ? defaultPrinter.name : 'OneNote (Desktop)';
+      // Pick first available online printer, preferring connected HP 1018 over virtual/disconnected devices
+      const defaultPrinter =
+        shopPrinters.find((p) => p.status === 'ONLINE' && p.name.includes('1018')) ||
+        shopPrinters.find(
+          (p) =>
+            p.status === 'ONLINE' &&
+            !p.name.includes('MF240') &&
+            !p.name.includes('OneNote') &&
+            !p.name.includes('PDF') &&
+            !p.name.includes('Fax'),
+        ) ||
+        shopPrinters.find((p) => p.status === 'ONLINE') ||
+        shopPrinters[0];
+      selectedPrinterName = defaultPrinter ? defaultPrinter.name : 'HP LaserJet 1018';
     }
 
     // Transition order state WAITING -> ASSIGNED
