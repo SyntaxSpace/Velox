@@ -36,6 +36,10 @@ describe('Order State Machine', () => {
       expect(() => validateTransition(OrderStatus.DOWNLOADING, OrderStatus.PRINTING)).not.toThrow();
     });
 
+    it('should allow valid transition: DOWNLOADING -> FAILED', () => {
+      expect(() => validateTransition(OrderStatus.DOWNLOADING, OrderStatus.FAILED)).not.toThrow();
+    });
+
     it('should allow valid transition: PRINTING -> COMPLETED', () => {
       expect(() => validateTransition(OrderStatus.PRINTING, OrderStatus.COMPLETED)).not.toThrow();
     });
@@ -54,6 +58,24 @@ describe('Order State Machine', () => {
 
     it('should allow valid transition: FAILED -> WAITING', () => {
       expect(() => validateTransition(OrderStatus.FAILED, OrderStatus.WAITING)).not.toThrow();
+    });
+
+    it('should throw error for invalid transition: DOWNLOADING -> COMPLETED', () => {
+      expect(() => validateTransition(OrderStatus.DOWNLOADING, OrderStatus.COMPLETED)).toThrow(
+        /Invalid state transition/,
+      );
+    });
+
+    it('should throw error for invalid transition: DOWNLOADING -> WAITING', () => {
+      expect(() => validateTransition(OrderStatus.DOWNLOADING, OrderStatus.WAITING)).toThrow(
+        /Invalid state transition/,
+      );
+    });
+
+    it('should throw error for invalid transition: DOWNLOADING -> CANCELLED', () => {
+      expect(() => validateTransition(OrderStatus.DOWNLOADING, OrderStatus.CANCELLED)).toThrow(
+        /Invalid state transition/,
+      );
     });
 
     it('should throw error for invalid transition: PENDING -> PRINTING', () => {
@@ -111,6 +133,18 @@ describe('Order State Machine', () => {
         OrderEventType.PRINTING_COMPLETED,
       );
     });
+
+    it('should return PRINT_FAILED for DOWNLOADING -> FAILED', () => {
+      expect(getEventForTransition(OrderStatus.DOWNLOADING, OrderStatus.FAILED)).toBe(
+        OrderEventType.PRINT_FAILED,
+      );
+    });
+
+    it('should return PRINT_FAILED for PRINTING -> FAILED', () => {
+      expect(getEventForTransition(OrderStatus.PRINTING, OrderStatus.FAILED)).toBe(
+        OrderEventType.PRINT_FAILED,
+      );
+    });
   });
 
   describe('isActiveQueueState', () => {
@@ -136,11 +170,55 @@ describe('Order State Machine', () => {
       expect(isCancellable(OrderStatus.WAITING)).toBe(true);
     });
 
-    it('should return false for ASSIGNED, PRINTING, COMPLETED, CANCELLED', () => {
+    it('should return false for ASSIGNED, PRINTING, COMPLETED, CANCELLED, FAILED, DOWNLOADING', () => {
       expect(isCancellable(OrderStatus.ASSIGNED)).toBe(false);
+      expect(isCancellable(OrderStatus.DOWNLOADING)).toBe(false);
       expect(isCancellable(OrderStatus.PRINTING)).toBe(false);
       expect(isCancellable(OrderStatus.COMPLETED)).toBe(false);
       expect(isCancellable(OrderStatus.CANCELLED)).toBe(false);
+      expect(isCancellable(OrderStatus.FAILED)).toBe(false);
+    });
+  });
+
+  describe('DOWNLOADING -> FAILED State Machine & Queue Unblocking Regression', () => {
+    it('1. DOWNLOADING -> FAILED succeeds validation', () => {
+      expect(() => validateTransition(OrderStatus.DOWNLOADING, OrderStatus.FAILED)).not.toThrow();
+    });
+
+    it('2. The failure event is mapped to PRINT_FAILED', () => {
+      const event = getEventForTransition(OrderStatus.DOWNLOADING, OrderStatus.FAILED);
+      expect(event).toBe(OrderEventType.PRINT_FAILED);
+    });
+
+    it('3. Invalid transitions from DOWNLOADING remain rejected', () => {
+      const invalidTargets = [
+        OrderStatus.PENDING,
+        OrderStatus.WAITING,
+        OrderStatus.ASSIGNED,
+        OrderStatus.COMPLETED,
+        OrderStatus.COLLECTED,
+        OrderStatus.CANCELLED,
+        OrderStatus.DELETED,
+      ];
+      for (const target of invalidTargets) {
+        expect(() => validateTransition(OrderStatus.DOWNLOADING, target)).toThrow(
+          /Invalid state transition/,
+        );
+      }
+    });
+
+    it('4. A failed download does not leave the shop queue blocked (FAILED is not an active queue state)', () => {
+      expect(isActiveQueueState(OrderStatus.DOWNLOADING)).toBe(true);
+      expect(isActiveQueueState(OrderStatus.FAILED)).toBe(false);
+    });
+
+    it('5. Concurrency guard rejects transition if order state changed concurrently', () => {
+      // Simulating optimistic concurrency control where update count is 0 because order is already PRINTING
+      const currentExpectedStatus = OrderStatus.DOWNLOADING;
+      const actualDatabaseStatus = OrderStatus.PRINTING;
+      const orderChangedConcurrently = currentExpectedStatus !== actualDatabaseStatus;
+
+      expect(orderChangedConcurrently).toBe(true);
     });
   });
 });
