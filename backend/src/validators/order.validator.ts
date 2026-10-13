@@ -14,6 +14,8 @@ export const createOrderBodySchema = z.object({
   paperSize: z.enum(['A4', 'A3', 'Letter', 'Legal']).default('A4'),
   paymentMethod: z.enum(['UPI', 'COUNTER', 'CARD']).default('COUNTER'),
   pageCount: z.coerce.number().int().min(1).max(5000).optional(),
+  customerName: z.string().max(100).optional(),
+  customerPhone: z.string().max(20).optional(),
 });
 
 export const orderIdParamSchema = z.object({

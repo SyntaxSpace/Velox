@@ -150,6 +150,8 @@ export class OrderService {
         shopId: shop.id,
         userId: userContext.userId,
         guestSessionId: userContext.guestSessionId,
+        customerName: body.customerName,
+        customerPhone: body.customerPhone,
       },
       'Order created successfully',
     );
@@ -163,6 +165,8 @@ export class OrderService {
         totalPages,
         estimatedCost,
         createdAt: order.createdAt,
+        customerName: body.customerName,
+        customerPhone: body.customerPhone,
       });
       logger.info({ orderId: order.id }, 'Emitted new.order socket event');
     }
