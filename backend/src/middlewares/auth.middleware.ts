@@ -56,10 +56,26 @@ export function authenticateGuestOrUser(req: Request, _res: Response, next: Next
     }
 
     if (token) {
-      const payload = verifyAccessToken(token);
-      req.user = payload;
-      next();
-      return;
+      try {
+        const payload = verifyAccessToken(token);
+        req.user = payload;
+        next();
+        return;
+      } catch (tokenError) {
+        // Fallback: If Authorization bearer was invalid/expired (e.g. stale login token),
+        // but a separate x-guest-session was provided, verify the guest session.
+        if (guestHeader && guestHeader !== token) {
+          try {
+            const guestPayload = verifyAccessToken(guestHeader);
+            req.user = guestPayload;
+            next();
+            return;
+          } catch {
+            // Both failed, throw original error
+          }
+        }
+        throw tokenError;
+      }
     }
 
     if (process.env.NODE_ENV === 'development' && !req.headers['x-test-auth']) {

@@ -14,6 +14,7 @@ import {
 } from '@/services/shop.service';
 import { createOrder } from '@/services/order.service';
 import { createRazorpayOrder, verifyRazorpayPayment } from '@/services/payment.service';
+import { isTokenExpired } from '@/lib/api';
 import { useAuthStore } from '@/store/auth';
 import VeloxLogo from '@/components/shared/VeloxLogo';
 import SegmentedControl from '@/components/ui/SegmentedControl';
@@ -103,6 +104,31 @@ export default function ShopPage() {
       .then((data) => setPricing(data))
       .catch((err) => console.warn('Failed to load shop pricing, using defaults:', err));
   }, [shopId]);
+
+  // Proactively ensure valid guest session for this specific shop
+  useEffect(() => {
+    if (!shopId || isAuthenticated) return;
+    if (typeof window === 'undefined') return;
+
+    // Purge expired velox_token if present so customer upload is never blocked by expired login sessions
+    const authToken = localStorage.getItem('velox_token');
+    if (authToken && isTokenExpired(authToken)) {
+      localStorage.removeItem('velox_token');
+    }
+
+    const guestToken = localStorage.getItem('velox_guest_session');
+    const guestShop = localStorage.getItem('velox_guest_shop_id');
+
+    if (!guestToken || isTokenExpired(guestToken) || guestShop !== shopId) {
+      createGuestSession(shopId)
+        .then((session) => {
+          localStorage.setItem('velox_guest_session', session.sessionToken);
+          localStorage.setItem('velox_guest_session_id', session.guestSessionId);
+          localStorage.setItem('velox_guest_shop_id', shopId);
+        })
+        .catch((err) => console.warn('Proactive guest session initialization deferred:', err));
+    }
+  }, [shopId, isAuthenticated]);
 
   // Upload Form State
   const [file, setFile] = useState<File | null>(null);
@@ -239,15 +265,23 @@ export default function ShopPage() {
 
     try {
       if (!isAuthenticated) {
+        // Clear expired auth token if present so customer upload is never blocked by expired login sessions
+        const authToken = localStorage.getItem('velox_token');
+        if (authToken && isTokenExpired(authToken)) {
+          localStorage.removeItem('velox_token');
+        }
+
         let guestToken = localStorage.getItem('velox_guest_session');
-        if (!guestToken) {
+        const guestShop = localStorage.getItem('velox_guest_shop_id');
+        if (!guestToken || isTokenExpired(guestToken) || guestShop !== shopId) {
           try {
             const session = await createGuestSession(shopId);
             guestToken = session.sessionToken;
             localStorage.setItem('velox_guest_session', guestToken);
             localStorage.setItem('velox_guest_session_id', session.guestSessionId);
-          } catch {
-            // Proceed; backend handles fallback
+            localStorage.setItem('velox_guest_shop_id', shopId);
+          } catch (sessionErr) {
+            console.warn('Failed to acquire fresh guest session:', sessionErr);
           }
         }
       }
@@ -265,9 +299,34 @@ export default function ShopPage() {
       formData.append('customerName', trimmedName);
       formData.append('customerPhone', cleanPhone);
 
-      const result = await createOrder(formData, (progress) => {
-        setUploadProgress(progress);
-      });
+      let result;
+      try {
+        result = await createOrder(formData, (progress) => {
+          setUploadProgress(progress);
+        });
+      } catch (uploadErr: any) {
+        // Self-healing: If rejected with 401 (invalid/expired token), purge stale tokens, obtain fresh guest session, and retry once
+        if (uploadErr?.response?.status === 401 && !isAuthenticated) {
+          console.warn(
+            'Session rejected (401). Purging stale tokens and retrying with fresh guest session...',
+          );
+          localStorage.removeItem('velox_token');
+          localStorage.removeItem('velox_guest_session');
+          localStorage.removeItem('velox_guest_session_id');
+          localStorage.removeItem('velox_guest_shop_id');
+
+          const freshSession = await createGuestSession(shopId);
+          localStorage.setItem('velox_guest_session', freshSession.sessionToken);
+          localStorage.setItem('velox_guest_session_id', freshSession.guestSessionId);
+          localStorage.setItem('velox_guest_shop_id', shopId);
+
+          result = await createOrder(formData, (progress) => {
+            setUploadProgress(progress);
+          });
+        } else {
+          throw uploadErr;
+        }
+      }
 
       if (paymentChoice === 'counter') {
         setIsBottomSheetOpen(false);

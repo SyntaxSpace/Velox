@@ -8,11 +8,45 @@ export const api = axios.create({
   withCredentials: true,
 });
 
-// Request interceptor to attach auth or guest token
+export function isTokenExpired(token: string | null): boolean {
+  if (!token) return true;
+  try {
+    const parts = token.split('.');
+    if (parts.length !== 3) return true;
+    const base64Url = parts[1];
+    const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+    const jsonPayload =
+      typeof window !== 'undefined' && typeof window.atob === 'function'
+        ? window.atob(base64)
+        : Buffer.from(base64, 'base64').toString('utf-8');
+    const payload = JSON.parse(jsonPayload);
+    if (!payload.exp) return false;
+    // Expired if current time >= expiry (with 30-second skew buffer)
+    return Date.now() >= payload.exp * 1000 - 30000;
+  } catch {
+    return true;
+  }
+}
+
+// Request interceptor to attach valid auth or guest token
 api.interceptors.request.use((config) => {
   if (typeof window !== 'undefined') {
-    const token = localStorage.getItem('velox_token');
-    const guestSession = localStorage.getItem('velox_guest_session');
+    let token = localStorage.getItem('velox_token');
+    let guestSession = localStorage.getItem('velox_guest_session');
+
+    // Purge expired auth token so customer requests are not poisoned
+    if (token && isTokenExpired(token)) {
+      localStorage.removeItem('velox_token');
+      token = null;
+    }
+
+    // Purge expired guest session token so fresh one can be generated
+    if (guestSession && isTokenExpired(guestSession)) {
+      localStorage.removeItem('velox_guest_session');
+      localStorage.removeItem('velox_guest_session_id');
+      localStorage.removeItem('velox_guest_shop_id');
+      guestSession = null;
+    }
 
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
@@ -61,6 +95,10 @@ api.interceptors.response.use(
 
       const refreshToken = localStorage.getItem('velox_refresh_token');
       if (!refreshToken) {
+        localStorage.removeItem('velox_token');
+        localStorage.removeItem('velox_guest_session');
+        localStorage.removeItem('velox_guest_session_id');
+        localStorage.removeItem('velox_guest_shop_id');
         return Promise.reject(error);
       }
 
