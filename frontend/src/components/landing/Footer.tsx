@@ -9,12 +9,12 @@ export function Footer() {
           {/* Brand Column */}
           <div className="col-span-2 flex flex-col items-start pr-6">
             <Link href="/" className="inline-block mb-4">
-              <div className="relative h-7 w-28">
+              <div className="relative h-7">
                 <Image
-                  src="/velox-wordmark-white.png"
+                  src="/velox-logo-white.png"
                   alt="Velox"
                   width={140}
-                  height={34}
+                  height={49}
                   className="h-7 w-auto object-contain object-left"
                 />
               </div>

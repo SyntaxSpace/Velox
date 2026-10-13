@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { api } from '@/lib/api';
 import { useAuthStore } from '@/store/auth';
+import VeloxLogo from '@/components/shared/VeloxLogo';
 import { Loader2, ArrowRight } from 'lucide-react';
 
 export default function PartnerLoginPage() {
@@ -47,8 +48,8 @@ export default function PartnerLoginPage() {
       <div className="w-full max-w-sm">
         {/* Brand Header */}
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center h-10 w-10 rounded-xl bg-primary text-primary-foreground font-bold text-sm tracking-tight mb-4 shadow-sm">
-            V
+          <div className="flex justify-center mb-4">
+            <VeloxLogo className="h-10 w-auto" href="/" />
           </div>
           <h1 className="text-xl font-semibold tracking-tight text-foreground">Partner Platform</h1>
           <p className="text-xs text-muted mt-1.5">

@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
 import { getMyShops, ShopData } from '@/services/shop.service';
 import { useAuthStore } from '@/store/auth';
+import VeloxLogo from '@/components/shared/VeloxLogo';
 import {
   Plus,
   Store,
@@ -50,9 +51,8 @@ export default function OwnerDashboardPage() {
       <header className="border-b border-border bg-surface/50 backdrop-blur sticky top-0 z-10">
         <div className="max-w-5xl mx-auto px-4 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="h-9 w-9 rounded-xl bg-primary text-primary-foreground flex items-center justify-center font-bold text-sm tracking-tight">
-              V
-            </div>
+            <VeloxLogo className="h-8 w-auto" href="/owner" />
+            <div className="h-6 w-[1px] bg-border hidden sm:block" />
             <div>
               <p className="text-xs font-semibold tracking-wider text-muted uppercase">
                 Velox Edge

@@ -36,14 +36,9 @@ export default function LandingPage() {
         }
 
         .velox-page > header > div > a:first-child > div {
-          width: 100px;
           height: 28px;
-          overflow: hidden;
-          background: url('/logo-black.png') no-repeat -28px -12px / 155px 52px;
-        }
-
-        .velox-page > header > div > a:first-child > div > img {
-          opacity: 0 !important;
+          display: flex;
+          align-items: center;
         }
 
         .velox-page footer img {

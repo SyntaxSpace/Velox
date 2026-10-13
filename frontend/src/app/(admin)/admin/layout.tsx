@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import VeloxLogo from '@/components/shared/VeloxLogo';
 import { LayoutDashboard, ShoppingCart, Printer, Settings, Menu, X } from 'lucide-react';
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
@@ -20,7 +21,10 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     <div className="min-h-screen bg-surface flex flex-col md:flex-row">
       {/* Mobile Header */}
       <div className="md:hidden flex items-center justify-between p-4 bg-background border-b border-border">
-        <div className="font-bold tracking-tight text-lg">Velox Admin</div>
+        <div className="flex items-center gap-2">
+          <VeloxLogo className="h-6 w-auto" href="/admin" />
+          <span className="text-xs font-semibold text-muted">Admin</span>
+        </div>
         <button onClick={() => setSidebarOpen(!sidebarOpen)} className="p-2">
           {sidebarOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
         </button>
@@ -32,9 +36,9 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           sidebarOpen ? 'block' : 'hidden'
         } md:block w-full md:w-64 bg-background border-r border-border md:min-h-screen shrink-0`}
       >
-        <div className="hidden md:block p-6">
-          <div className="font-bold tracking-tight text-xl">Velox</div>
-          <div className="text-xs text-muted mt-1">Admin Panel</div>
+        <div className="hidden md:block p-6 border-b border-border">
+          <VeloxLogo className="h-8 w-auto mb-1.5" href="/admin" />
+          <div className="text-xs font-medium text-muted">Admin Panel</div>
         </div>
         <nav className="p-4 space-y-1">
           {navItems.map((item) => {

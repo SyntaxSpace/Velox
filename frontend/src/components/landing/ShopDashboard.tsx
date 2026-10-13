@@ -89,7 +89,7 @@ export function ShopDashboard() {
                 <div className="flex items-center gap-2">
                   <div className="relative h-5 w-20">
                     <Image
-                      src="/velox-wordmark.png"
+                      src="/velox-logo.png"
                       alt="Velox"
                       fill
                       className="object-contain object-left"

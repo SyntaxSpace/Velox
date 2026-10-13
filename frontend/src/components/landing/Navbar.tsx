@@ -12,12 +12,12 @@ export function Navbar() {
       <div className="max-w-[1240px] mx-auto px-6 h-20 flex items-center justify-between">
         {/* Left: Brand Logo from Assets */}
         <Link href="/" className="flex items-center gap-2 group">
-          <div className="relative h-7 w-28 flex items-center">
+          <div className="relative h-7 flex items-center">
             <Image
-              src="/velox-wordmark.png"
+              src="/velox-logo.png"
               alt="Velox"
               width={140}
-              height={34}
+              height={49}
               className="h-7 w-auto object-contain object-left"
               priority
             />

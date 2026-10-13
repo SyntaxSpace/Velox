@@ -13,6 +13,7 @@ import {
   getShopDashboard,
 } from '@/services/shop.service';
 import { useAuthStore } from '@/store/auth';
+import VeloxLogo from '@/components/shared/VeloxLogo';
 import {
   Store,
   Printer,
@@ -149,9 +150,8 @@ export default function ShopOwnerDashboardPage() {
       <header className="border-b border-border bg-surface/60 backdrop-blur sticky top-0 z-20">
         <div className="max-w-5xl mx-auto px-4 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="h-9 w-9 rounded-xl bg-primary text-primary-foreground flex items-center justify-center font-bold text-sm tracking-tight shadow-sm">
-              V
-            </div>
+            <VeloxLogo className="h-8 w-auto" href="/shop-owner" />
+            <div className="h-6 w-[1px] bg-border hidden sm:block" />
             <div>
               <div className="flex items-center gap-2">
                 <span className="text-[10px] font-mono font-bold tracking-wider text-primary uppercase bg-primary/10 px-1.5 py-0.2 rounded">

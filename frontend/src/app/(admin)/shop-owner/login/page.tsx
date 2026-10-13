@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { api } from '@/lib/api';
 import { useAuthStore } from '@/store/auth';
+import VeloxLogo from '@/components/shared/VeloxLogo';
 import { Loader2, Store, Lock } from 'lucide-react';
 
 export default function ShopOwnerLoginPage() {
@@ -46,8 +47,8 @@ export default function ShopOwnerLoginPage() {
     <div className="flex min-h-screen flex-col items-center justify-center p-4 bg-surface text-foreground">
       <div className="w-full max-w-md bg-background border border-border rounded-2xl p-8 shadow-sm">
         <div className="text-center mb-6">
-          <div className="inline-flex items-center justify-center h-12 w-12 rounded-xl bg-primary text-primary-foreground mb-3 shadow-md">
-            <Store className="h-6 w-6" />
+          <div className="flex justify-center mb-4">
+            <VeloxLogo className="h-10 w-auto" href="/" />
           </div>
           <span className="text-[11px] font-mono tracking-widest text-primary uppercase font-semibold block mb-1">
             VELOX COUNTER SYSTEM

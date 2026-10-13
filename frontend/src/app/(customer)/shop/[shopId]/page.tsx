@@ -3,6 +3,7 @@
 import { useParams, useRouter } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
 import { getPublicShop, ShopData } from '@/services/shop.service';
+import VeloxLogo from '@/components/shared/VeloxLogo';
 import { Printer, MapPin, Phone, Mail, ArrowRight, Loader2 } from 'lucide-react';
 
 export default function ShopPage() {
@@ -56,8 +57,8 @@ export default function ShopPage() {
     <div className="min-h-screen bg-background">
       {/* Header */}
       <header className="border-b border-border">
-        <div className="max-w-lg mx-auto px-4 py-4">
-          <p className="text-xs text-muted tracking-widest uppercase">Velox</p>
+        <div className="max-w-lg mx-auto px-4 py-3 flex items-center justify-between">
+          <VeloxLogo className="h-6 w-auto" />
         </div>
       </header>
 

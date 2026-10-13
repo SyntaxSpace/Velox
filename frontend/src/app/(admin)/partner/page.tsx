@@ -7,6 +7,7 @@ import { useQuery } from '@tanstack/react-query';
 import { getPartnerStats, getAllShops, PartnerStats } from '@/services/partner.service';
 import { ShopData } from '@/services/shop.service';
 import { useAuthStore } from '@/store/auth';
+import VeloxLogo from '@/components/shared/VeloxLogo';
 import {
   Plus,
   Store,
@@ -67,14 +68,11 @@ export default function PartnerDashboardPage() {
       <header className="border-b border-border bg-background/90 backdrop-blur sticky top-0 z-20">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-4">
           <div className="flex items-center gap-3">
-            <div className="h-8 w-8 rounded-lg bg-primary text-primary-foreground flex items-center justify-center font-bold text-xs tracking-tight shadow-sm">
-              V
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="font-semibold text-sm tracking-tight text-foreground">Velox</span>
-              <span className="text-muted text-xs">/</span>
-              <span className="text-xs font-medium text-muted">Partner Platform</span>
-            </div>
+            <VeloxLogo className="h-7 sm:h-8 w-auto" href="/partner" />
+            <div className="h-5 w-[1px] bg-border" />
+            <span className="text-xs font-semibold text-muted tracking-tight">
+              Partner Platform
+            </span>
           </div>
 
           <div className="flex items-center gap-3">

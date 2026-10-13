@@ -8,6 +8,7 @@ import { z } from 'zod';
 import { createOrder } from '@/services/order.service';
 import { createGuestSession, getShopPricing, ShopPricing } from '@/services/shop.service';
 import { useAuthStore } from '@/store/auth';
+import VeloxLogo from '@/components/shared/VeloxLogo';
 import { Upload, FileText, X, Loader2, ArrowLeft, CheckCircle } from 'lucide-react';
 import { PDFDocument } from 'pdf-lib';
 
@@ -207,9 +208,10 @@ export default function UploadPage() {
           >
             <ArrowLeft className="h-5 w-5" />
           </button>
-          <div>
-            <p className="text-xs text-muted tracking-widest uppercase">Velox</p>
-            <h1 className="text-lg font-semibold">Upload Document</h1>
+          <div className="flex items-center gap-2.5">
+            <VeloxLogo className="h-6 w-auto" />
+            <div className="h-4 w-[1px] bg-border" />
+            <h1 className="text-base font-semibold">Upload Document</h1>
           </div>
         </div>
       </header>

@@ -1,14 +1,15 @@
 'use client';
 
 import Link from 'next/link';
+import VeloxLogo from '@/components/shared/VeloxLogo';
 import { Store, ShieldCheck, ArrowRight, CheckCircle2 } from 'lucide-react';
 
 export default function RegisterNoticePage() {
   return (
     <div className="flex min-h-screen flex-col items-center justify-center p-4 bg-surface text-foreground">
       <div className="w-full max-w-md bg-background border border-border rounded-2xl p-8 shadow-sm text-center">
-        <div className="inline-flex items-center justify-center h-14 w-14 rounded-2xl bg-primary/10 text-primary mb-4">
-          <Store className="h-7 w-7" />
+        <div className="flex justify-center mb-4">
+          <VeloxLogo className="h-10 w-auto" href="/" />
         </div>
 
         <span className="text-[10px] font-mono font-bold tracking-widest text-primary uppercase bg-primary/10 px-2 py-0.5 rounded-full inline-block mb-2">

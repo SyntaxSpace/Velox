@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { api } from '@/lib/api';
 import { useAuthStore } from '@/store/auth';
+import VeloxLogo from '@/components/shared/VeloxLogo';
 import { Loader2, LogIn } from 'lucide-react';
 
 export default function LoginPage() {
@@ -48,8 +49,8 @@ export default function LoginPage() {
     <div className="flex min-h-screen flex-col items-center justify-center p-4 bg-surface">
       <div className="w-full max-w-md bg-background border border-border rounded-2xl p-8 shadow-sm">
         <div className="text-center mb-6">
-          <div className="inline-flex items-center justify-center h-12 w-12 rounded-xl bg-primary text-primary-foreground mb-3">
-            <LogIn className="h-6 w-6" />
+          <div className="flex justify-center mb-4">
+            <VeloxLogo className="h-10 w-auto" href="/" />
           </div>
           <h1 className="text-2xl font-bold tracking-tight">Sign in to Velox</h1>
           <p className="text-sm text-muted mt-1">Enter your credentials to access your dashboard</p>
