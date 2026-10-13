@@ -23,14 +23,14 @@ export default function ShopOwnerLoginPage() {
 
     try {
       const res = await api.post('/auth/login', { email, password });
-      const { user, accessToken } = res.data.data;
+      const { user, accessToken, refreshToken } = res.data.data;
 
       if (user.role !== 'SHOP_OWNER' && user.role !== 'OWNER' && user.role !== 'ADMIN') {
         setError('Access denied. This login is strictly for provisioned Shop Owners.');
         return;
       }
 
-      setAuth(user, accessToken);
+      setAuth(user, accessToken, refreshToken);
       router.push('/shop-owner');
     } catch (err: any) {
       const message =

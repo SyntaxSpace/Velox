@@ -13,6 +13,7 @@ export const createOrderBodySchema = z.object({
   orientation: z.enum(['portrait', 'landscape']).default('portrait'),
   paperSize: z.enum(['A4', 'A3', 'Letter', 'Legal']).default('A4'),
   paymentMethod: z.enum(['UPI', 'COUNTER', 'CARD']).default('COUNTER'),
+  pageCount: z.coerce.number().int().min(1).max(5000).optional(),
 });
 
 export const orderIdParamSchema = z.object({

@@ -23,14 +23,14 @@ export default function PartnerLoginPage() {
 
     try {
       const res = await api.post('/auth/login', { email, password });
-      const { user, accessToken } = res.data.data;
+      const { user, accessToken, refreshToken } = res.data.data;
 
       if (user.role !== 'PARTNER' && user.role !== 'ADMIN') {
         setError('Access restricted to authorized Velox Partner accounts.');
         return;
       }
 
-      setAuth(user, accessToken);
+      setAuth(user, accessToken, refreshToken);
       router.push('/partner');
     } catch (err: any) {
       const message =

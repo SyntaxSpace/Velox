@@ -191,3 +191,16 @@ export async function getShopQueue(shopId: string): Promise<ShopQueueInfo> {
   const response = await api.get(`/shops/${shopId}/queue`);
   return response.data.data;
 }
+
+export interface PairingCodeResponse {
+  pairingCode: string;
+  shopId: string;
+  shopName: string;
+  expiresAt: string;
+  validForMinutes: number;
+}
+
+export async function generatePairingCode(shopId: string): Promise<PairingCodeResponse> {
+  const response = await api.post(`/shops/${shopId}/pairing-code`);
+  return response.data.data;
+}

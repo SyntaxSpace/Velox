@@ -23,8 +23,8 @@ export default function LoginPage() {
 
     try {
       const res = await api.post('/auth/login', { email, password });
-      const { user, accessToken } = res.data.data;
-      setAuth(user, accessToken);
+      const { user, accessToken, refreshToken } = res.data.data;
+      setAuth(user, accessToken, refreshToken);
 
       if (user.role === 'PARTNER' || user.role === 'ADMIN') {
         router.push('/partner');

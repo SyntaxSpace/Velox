@@ -1,4 +1,3 @@
-import productComposition from '../../../assets/phone_qrcocode_stand.png';
 import { Navbar } from '@/components/landing/Navbar';
 import { Hero } from '@/components/landing/Hero';
 import { HowItWorks } from '@/components/landing/HowItWorks';
@@ -74,7 +73,7 @@ export default function LandingPage() {
         .velox-page #features > section > div > div:last-child > div {
           max-width: 560px;
           aspect-ratio: 1.25;
-          background: url('${productComposition.src}') center / contain no-repeat;
+          background: url('/phone_qrcocode_stand.png') center / contain no-repeat;
         }
 
         .velox-page #features > section > div > div:last-child > div > img {

@@ -1,3 +1,5 @@
+import fs from 'fs';
+import { PDFDocument } from 'pdf-lib';
 import crypto from 'crypto';
 import { orderRepository } from '../repositories/order.repository';
 import { shopRepository } from '../repositories/shop.repository';
@@ -20,6 +22,57 @@ export function setSocketIO(io: any): void {
   ioInstance = io;
 }
 
+async function extractPageCount(
+  file: Express.Multer.File,
+  clientPageCount?: number,
+): Promise<number> {
+  if (file.mimetype !== 'application/pdf') {
+    return 1;
+  }
+
+  try {
+    let buffer: Buffer | null = file.buffer || null;
+    if (!buffer && file.path && fs.existsSync(file.path)) {
+      buffer = fs.readFileSync(file.path);
+    }
+    if (buffer && buffer.length > 0) {
+      const pdfDoc = await PDFDocument.load(buffer, { ignoreEncryption: true });
+      const count = pdfDoc.getPageCount();
+      if (count > 0) {
+        return count;
+      }
+    }
+  } catch (err) {
+    logger.warn(
+      { err, filename: file.originalname },
+      'Failed to parse PDF page count with pdf-lib, trying fallback',
+    );
+  }
+
+  // Fallback regex on buffer if pdf-lib encountered an issue
+  try {
+    let buffer: Buffer | null = file.buffer || null;
+    if (!buffer && file.path && fs.existsSync(file.path)) {
+      buffer = fs.readFileSync(file.path);
+    }
+    if (buffer && buffer.length > 0) {
+      const str = buffer.toString('latin1');
+      const matches = str.match(/\/Type\s*\/Page\b/g);
+      if (matches && matches.length > 0) {
+        return matches.length;
+      }
+    }
+  } catch {
+    // Ignore fallback failure
+  }
+
+  if (clientPageCount && clientPageCount > 0) {
+    return clientPageCount;
+  }
+
+  return 1;
+}
+
 export class OrderService {
   async createOrder(
     userContext: { userId?: string; guestSessionId?: string; isGuest?: boolean },
@@ -39,8 +92,8 @@ export class OrderService {
     // Generate unique order code: VLX-XXXXXX
     const orderCode = this.generateOrderCode();
 
-    // Placeholder page count (1 for images, 1 for PDFs without parsing)
-    const pageCount = 1;
+    // Extract real page count for PDFs, or fallback to client/1
+    const pageCount = await extractPageCount(file, body.pageCount);
     const totalPages = pageCount * body.copies;
 
     // Shop-configured pricing per Day 8 specifications

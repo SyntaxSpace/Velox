@@ -212,5 +212,58 @@ describe('Shop-Specific Dynamic Pricing (Day 8)', () => {
       expect(order.totalPages).toBe(3);
       expect(order.estimatedCost).toBe(45.0);
     });
+
+    it('should calculate order cost for a 10-page PDF correctly (10 pages * 2 Rs = 20 Rs)', async () => {
+      const { PDFDocument } = await import('pdf-lib');
+      const doc = await PDFDocument.create();
+      for (let i = 0; i < 10; i++) doc.addPage();
+      const pdfBytes = await doc.save();
+
+      const shopId = 'shop-10pages';
+      vi.mocked(prisma.shop.findFirst).mockResolvedValue({
+        id: shopId,
+        name: 'MGM University',
+        status: 'ACTIVE',
+        pricePerPageBW: 2.0,
+        pricePerPageColor: 10.0,
+        duplexDiscount: 0.0,
+        printers: [],
+      } as any);
+
+      vi.mocked(prisma.order.create).mockResolvedValue({
+        id: 'order-10',
+        orderCode: 'VLX-10PAGE',
+        orderStatus: 'ORDER_CREATED',
+        createdAt: new Date(),
+      } as any);
+      vi.mocked(prisma.file.create).mockResolvedValue({} as any);
+      vi.mocked(prisma.orderTimeline.create).mockResolvedValue({} as any);
+
+      const mockFile = {
+        originalname: 'assignment-10pages.pdf',
+        filename: 'file-10pages.pdf',
+        size: pdfBytes.length,
+        mimetype: 'application/pdf',
+        buffer: Buffer.from(pdfBytes),
+      } as Express.Multer.File;
+
+      const order = await orderService.createOrder(
+        { guestSessionId: 'guest-session-10', isGuest: true },
+        {
+          shopId,
+          copies: 1,
+          color: 'bw',
+          doubleSided: false,
+          orientation: 'portrait',
+          paperSize: 'a4',
+          paymentMethod: 'counter_cash',
+        },
+        mockFile,
+      );
+
+      // 1 copy of 10-page PDF at 2.0 Rs/page = 10 pages total, 20 Rs estimated cost
+      expect(order.totalPages).toBe(10);
+      expect(order.estimatedCost).toBe(20.0);
+    });
   });
 });

@@ -110,6 +110,20 @@ export function initializeSocket(httpServer: HttpServer): SocketIOServer {
           socket.data.deviceId = deviceId;
           socket.data.registered = true;
 
+          // Evict any existing/stale sockets for the same deviceId to prevent duplicate job processing
+          const existingSockets = await io.in(`device:${deviceId}`).fetchSockets();
+          for (const s of existingSockets) {
+            if (s.id !== socket.id) {
+              logger.warn(
+                { oldSocketId: s.id, newSocketId: socket.id, deviceId },
+                'Evicting duplicate socket for device',
+              );
+              s.leave(`device:${deviceId}`);
+              s.leave(`shop:${shopId}`);
+              s.disconnect(true);
+            }
+          }
+
           // Join shop room and dedicated device room
           socket.join(`shop:${shopId}`);
           socket.join(`device:${deviceId}`);

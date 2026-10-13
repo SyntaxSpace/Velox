@@ -1,14 +1,15 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { createOrder } from '@/services/order.service';
-import { createGuestSession } from '@/services/shop.service';
+import { createGuestSession, getShopPricing, ShopPricing } from '@/services/shop.service';
 import { useAuthStore } from '@/store/auth';
 import { Upload, FileText, X, Loader2, ArrowLeft, CheckCircle } from 'lucide-react';
+import { PDFDocument } from 'pdf-lib';
 
 const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB
 const ALLOWED_TYPES = ['application/pdf', 'image/png', 'image/jpeg'];
@@ -24,6 +25,30 @@ const uploadSchema = z.object({
 
 type UploadFormData = z.infer<typeof uploadSchema>;
 
+async function getPdfPageCount(selectedFile: File): Promise<number> {
+  try {
+    const arrayBuffer = await selectedFile.arrayBuffer();
+    const pdfDoc = await PDFDocument.load(arrayBuffer, { ignoreEncryption: true });
+    const count = pdfDoc.getPageCount();
+    if (count > 0) return count;
+  } catch (err) {
+    console.warn('pdf-lib failed to parse page count, trying fallback:', err);
+  }
+
+  try {
+    const buffer = await selectedFile.arrayBuffer();
+    const text = new TextDecoder('latin1').decode(buffer);
+    const matches = text.match(/\/Type\s*\/Page\b/g);
+    if (matches && matches.length > 0) {
+      return matches.length;
+    }
+  } catch {
+    // fallback
+  }
+
+  return 1;
+}
+
 export default function UploadPage() {
   const params = useParams<{ shopId: string }>();
   const router = useRouter();
@@ -31,6 +56,9 @@ export default function UploadPage() {
   const { isAuthenticated } = useAuthStore();
 
   const [file, setFile] = useState<File | null>(null);
+  const [pageCount, setPageCount] = useState<number>(1);
+  const [isCountingPages, setIsCountingPages] = useState<boolean>(false);
+  const [pricing, setPricing] = useState<ShopPricing | null>(null);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [dragOver, setDragOver] = useState(false);
@@ -54,9 +82,17 @@ export default function UploadPage() {
   });
 
   const colorValue = watch('color');
-  const copiesValue = watch('copies');
+  const copiesValue = Number(watch('copies')) || 1;
+  const doubleSidedValue = watch('doubleSided');
 
-  const handleFileSelect = useCallback((selectedFile: File) => {
+  useEffect(() => {
+    if (!shopId) return;
+    getShopPricing(shopId)
+      .then((data) => setPricing(data))
+      .catch((err) => console.warn('Failed to load shop pricing, using defaults:', err));
+  }, [shopId]);
+
+  const handleFileSelect = useCallback(async (selectedFile: File) => {
     setError(null);
     if (!ALLOWED_TYPES.includes(selectedFile.type)) {
       setError('Only PDF, PNG, and JPG files are supported.');
@@ -67,6 +103,20 @@ export default function UploadPage() {
       return;
     }
     setFile(selectedFile);
+
+    if (selectedFile.type === 'application/pdf') {
+      setIsCountingPages(true);
+      try {
+        const pages = await getPdfPageCount(selectedFile);
+        setPageCount(pages);
+      } catch {
+        setPageCount(1);
+      } finally {
+        setIsCountingPages(false);
+      }
+    } else {
+      setPageCount(1);
+    }
   }, []);
 
   const handleDrop = useCallback(
@@ -105,6 +155,8 @@ export default function UploadPage() {
         }
       }
 
+      const effectivePages = file ? pageCount : 1;
+
       const formData = new FormData();
       formData.append('file', file);
       formData.append('shopId', shopId);
@@ -114,6 +166,7 @@ export default function UploadPage() {
       formData.append('orientation', data.orientation);
       formData.append('paperSize', data.paperSize);
       formData.append('paymentMethod', data.paymentMethod);
+      formData.append('pageCount', String(effectivePages));
 
       const result = await createOrder(formData, (progress) => {
         setUploadProgress(progress);
@@ -130,8 +183,19 @@ export default function UploadPage() {
     }
   };
 
-  // Estimated cost preview
-  const estimatedCost = copiesValue * (colorValue === 'color' ? 10 : 2);
+  // Estimated cost calculation per page and shop rates
+  const rateBW = pricing?.pricePerPageBW ?? 2;
+  const rateColor = pricing?.pricePerPageColor ?? 10;
+  const duplexDiscount = pricing?.duplexDiscount ?? 0;
+
+  let unitPrice = colorValue === 'color' ? rateColor : rateBW;
+  if (doubleSidedValue && duplexDiscount > 0) {
+    unitPrice = Math.max(0.1, unitPrice - duplexDiscount);
+  }
+
+  const effectivePages = file ? pageCount : 1;
+  const totalBillablePages = effectivePages * copiesValue;
+  const estimatedCost = Number((totalBillablePages * unitPrice).toFixed(2));
 
   return (
     <div className="min-h-screen bg-background">
@@ -170,12 +234,26 @@ export default function UploadPage() {
                   <FileText className="h-8 w-8 text-muted" />
                   <div className="text-left">
                     <p className="text-sm font-medium truncate max-w-[200px]">{file.name}</p>
-                    <p className="text-xs text-muted">{(file.size / 1024 / 1024).toFixed(2)} MB</p>
+                    <p className="text-xs text-muted">
+                      {isCountingPages ? (
+                        <span className="inline-flex items-center gap-1 text-primary">
+                          <Loader2 className="h-3 w-3 animate-spin inline" /> Counting pages...
+                        </span>
+                      ) : (
+                        <span className="font-medium text-foreground">
+                          {pageCount} {pageCount === 1 ? 'page' : 'pages'}
+                        </span>
+                      )}{' '}
+                      • {(file.size / 1024 / 1024).toFixed(2)} MB
+                    </p>
                   </div>
                 </div>
                 <button
                   type="button"
-                  onClick={() => setFile(null)}
+                  onClick={() => {
+                    setFile(null);
+                    setPageCount(1);
+                  }}
                   className="text-muted hover:text-foreground p-1"
                 >
                   <X className="h-5 w-5" />
@@ -288,8 +366,8 @@ export default function UploadPage() {
               <span className="text-lg font-semibold">₹{estimatedCost}</span>
             </div>
             <p className="text-xs text-muted mt-1">
-              {colorValue === 'color' ? '₹10' : '₹2'}/page × {copiesValue}{' '}
-              {copiesValue === 1 ? 'copy' : 'copies'}
+              ₹{unitPrice}/page × {effectivePages} {effectivePages === 1 ? 'page' : 'pages'} ×{' '}
+              {copiesValue} {copiesValue === 1 ? 'copy' : 'copies'}
             </p>
           </div>
 

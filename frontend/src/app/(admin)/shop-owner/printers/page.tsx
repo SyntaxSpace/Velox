@@ -9,6 +9,8 @@ import {
   getShopPrinters,
   ShopData,
   ShopPrintersResponse,
+  generatePairingCode,
+  PairingCodeResponse,
 } from '@/services/shop.service';
 import { useAuthStore } from '@/store/auth';
 import {
@@ -22,12 +24,18 @@ import {
   Terminal,
   Copy,
   Check,
+  Key,
+  ShieldCheck,
 } from 'lucide-react';
 
 export default function ShopOwnerPrintersPage() {
   const router = useRouter();
   const { isAuthenticated } = useAuthStore();
   const [copied, setCopied] = useState(false);
+  const [pairingCodeData, setPairingCodeData] = useState<PairingCodeResponse | null>(null);
+  const [isGeneratingCode, setIsGeneratingCode] = useState(false);
+  const [codeError, setCodeError] = useState<string | null>(null);
+  const [codeCopied, setCodeCopied] = useState(false);
 
   useEffect(() => {
     const localToken = typeof window !== 'undefined' ? localStorage.getItem('velox_token') : null;
@@ -87,6 +95,20 @@ export default function ShopOwnerPrintersPage() {
     return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   };
 
+  const handleGenerateCode = async () => {
+    if (!shopId) return;
+    setIsGeneratingCode(true);
+    setCodeError(null);
+    try {
+      const result = await generatePairingCode(shopId);
+      setPairingCodeData(result);
+    } catch (err: any) {
+      setCodeError(err?.response?.data?.message || 'Failed to generate pairing code');
+    } finally {
+      setIsGeneratingCode(false);
+    }
+  };
+
   if (isShopsLoading) {
     return (
       <div className="min-h-screen bg-surface flex flex-col items-center justify-center gap-3">
@@ -108,14 +130,29 @@ export default function ShopOwnerPrintersPage() {
             Back to Shop Counter
           </Link>
 
-          <button
-            onClick={() => refetch()}
-            disabled={isFetching}
-            className="inline-flex items-center gap-2 px-3 py-1.5 text-xs font-medium rounded-lg border border-border bg-surface hover:bg-surface/80 transition-colors disabled:opacity-50"
-          >
-            <RefreshCw className={`w-3.5 h-3.5 ${isFetching ? 'animate-spin' : ''}`} />
-            Refresh Status
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handleGenerateCode}
+              disabled={isGeneratingCode || !shopId}
+              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-semibold rounded-lg bg-foreground text-background hover:bg-foreground/90 transition-colors shadow-sm disabled:opacity-50"
+            >
+              {isGeneratingCode ? (
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+              ) : (
+                <Key className="w-3.5 h-3.5 text-amber-500" />
+              )}
+              Add Agent / Pair Code
+            </button>
+
+            <button
+              onClick={() => refetch()}
+              disabled={isFetching}
+              className="inline-flex items-center gap-2 px-3 py-1.5 text-xs font-medium rounded-lg border border-border bg-surface hover:bg-surface/80 transition-colors disabled:opacity-50"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${isFetching ? 'animate-spin' : ''}`} />
+              Refresh Status
+            </button>
+          </div>
         </div>
 
         <div className="mb-8">
@@ -169,11 +206,98 @@ export default function ShopOwnerPrintersPage() {
           </div>
         </div>
 
+        {/* Pairing Code Active Modal/Banner */}
+        {pairingCodeData && (
+          <div className="mb-8 p-6 rounded-2xl border-2 border-primary/30 bg-surface shadow-lg relative animate-in fade-in slide-in-from-top-2 duration-200">
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2">
+                <span className="w-2.5 h-2.5 rounded-full bg-green-500 animate-pulse" />
+                <h3 className="text-sm font-bold tracking-tight">One-Time Cloud Pairing Code</h3>
+                <span className="text-xs px-2.5 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200 font-medium">
+                  Valid for 15 minutes
+                </span>
+              </div>
+              <button
+                onClick={() => setPairingCodeData(null)}
+                className="text-xs text-muted hover:text-foreground px-2 py-1"
+              >
+                Dismiss
+              </button>
+            </div>
+
+            <p className="text-xs text-muted mb-4">
+              Enter this 6-digit code in the <strong>Velox Agent</strong> desktop app on your
+              Windows counter PC to connect it to{' '}
+              <strong className="text-foreground">{assignedShop?.name}</strong>:
+            </p>
+
+            <div className="flex flex-wrap items-center gap-3 mb-4">
+              <div className="flex gap-2">
+                {pairingCodeData.pairingCode.split('').map((digit, i) => (
+                  <div
+                    key={i}
+                    className="w-11 h-14 rounded-xl border-2 border-foreground/20 bg-background flex items-center justify-center text-2xl font-black tracking-wider text-foreground shadow-sm"
+                  >
+                    {digit}
+                  </div>
+                ))}
+              </div>
+
+              <button
+                onClick={() => {
+                  navigator.clipboard.writeText(pairingCodeData.pairingCode);
+                  setCodeCopied(true);
+                  setTimeout(() => setCodeCopied(false), 2000);
+                }}
+                className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-2 rounded-lg border border-border bg-background hover:bg-surface transition-colors"
+              >
+                {codeCopied ? (
+                  <Check className="w-3.5 h-3.5 text-green-600" />
+                ) : (
+                  <Copy className="w-3.5 h-3.5" />
+                )}
+                {codeCopied ? 'Copied!' : 'Copy Code'}
+              </button>
+            </div>
+
+            <div className="pt-3 border-t border-border/60 text-xs text-muted flex items-center gap-2">
+              <Clock className="w-3.5 h-3.5" />
+              <span>
+                Expires at{' '}
+                {new Date(pairingCodeData.expiresAt).toLocaleTimeString([], {
+                  hour: '2-digit',
+                  minute: '2-digit',
+                })}
+                . Single-use: once entered into the desktop agent, it automatically links this PC.
+              </span>
+            </div>
+          </div>
+        )}
+
+        {codeError && (
+          <div className="mb-6 p-4 rounded-xl border border-red-200 bg-red-50 text-xs text-red-600 flex items-center justify-between">
+            <span>{codeError}</span>
+            <button onClick={() => setCodeError(null)} className="text-xs font-semibold underline">
+              Dismiss
+            </button>
+          </div>
+        )}
+
         <div className="mb-8">
-          <h2 className="text-sm font-semibold mb-3 flex items-center gap-2">
-            <Laptop className="w-4 h-4 text-muted" />
-            Registered Windows Edge Agent Nodes
-          </h2>
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-sm font-semibold flex items-center gap-2">
+              <Laptop className="w-4 h-4 text-muted" />
+              Registered Windows Edge Agent Nodes
+            </h2>
+            <button
+              onClick={handleGenerateCode}
+              disabled={isGeneratingCode || !shopId}
+              className="text-xs font-medium text-muted hover:text-foreground inline-flex items-center gap-1"
+            >
+              <Key className="w-3 h-3 text-amber-500" />
+              Pair New PC
+            </button>
+          </div>
 
           <div className="rounded-2xl border border-border bg-surface/40 overflow-hidden">
             {isPrintersLoading ? (
@@ -296,41 +420,70 @@ export default function ShopOwnerPrintersPage() {
         </div>
 
         <div className="border border-border bg-surface/50 rounded-2xl p-6 sm:p-8">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-sm font-semibold flex items-center gap-2">
-              <Terminal className="w-4 h-4 text-primary" />
-              Windows Edge Agent Configuration
-            </h3>
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
+            <div>
+              <h3 className="text-sm font-semibold flex items-center gap-2">
+                <Laptop className="w-4 h-4 text-primary" />
+                Zero-Configuration Counter PC Pairing
+              </h3>
+              <p className="text-xs text-muted mt-1">
+                Connect your shop's Windows PC using a temporary 6-digit pairing code. No config
+                files or manual setup required.
+              </p>
+            </div>
+
             <button
-              onClick={copyConfig}
-              className="inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-lg border border-border bg-background hover:bg-surface transition-colors"
+              onClick={handleGenerateCode}
+              disabled={isGeneratingCode || !shopId}
+              className="inline-flex items-center justify-center gap-2 px-4 py-2 text-xs font-semibold rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors shadow-sm disabled:opacity-50 shrink-0"
             >
-              {copied ? (
-                <Check className="w-3.5 h-3.5 text-green-600" />
+              {isGeneratingCode ? (
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
               ) : (
-                <Copy className="w-3.5 h-3.5" />
+                <Key className="w-3.5 h-3.5 text-amber-400" />
               )}
-              {copied ? 'Copied!' : 'Copy Config'}
+              Generate 6-Digit Pairing Code
             </button>
           </div>
 
-          <p className="text-xs text-muted mb-4 leading-relaxed">
-            To connect physical or virtual printers at your counter, configure your agent's{' '}
-            <code className="px-1.5 py-0.5 bg-background border border-border rounded font-mono text-[11px]">
-              appsettings.json
-            </code>{' '}
-            file with your Shop ID:
-          </p>
-
-          <pre className="p-4 rounded-xl bg-background border border-border text-[11px] font-mono text-foreground overflow-x-auto">
-            {configSnippet}
-          </pre>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 my-4">
+            <div className="p-3.5 rounded-xl border border-border bg-background">
+              <div className="text-[11px] font-bold text-muted uppercase tracking-wider mb-1">
+                Step 1
+              </div>
+              <div className="text-xs font-medium text-foreground">Launch Velox Agent</div>
+              <p className="text-[11px] text-muted mt-1">
+                Open the Velox Agent app on your Windows PC. If unpaired, it shows the 6-digit code
+                prompt.
+              </p>
+            </div>
+            <div className="p-3.5 rounded-xl border border-border bg-background">
+              <div className="text-[11px] font-bold text-muted uppercase tracking-wider mb-1">
+                Step 2
+              </div>
+              <div className="text-xs font-medium text-foreground">Click Generate Code</div>
+              <p className="text-[11px] text-muted mt-1">
+                Click the button above to generate a secure, 15-minute temporary pairing code for
+                this store.
+              </p>
+            </div>
+            <div className="p-3.5 rounded-xl border border-border bg-background">
+              <div className="text-[11px] font-bold text-muted uppercase tracking-wider mb-1">
+                Step 3
+              </div>
+              <div className="text-xs font-medium text-foreground">Enter & Connect</div>
+              <p className="text-[11px] text-muted mt-1">
+                Type the 6 digits into the desktop app. It will securely bind to this shop and sync
+                printers automatically.
+              </p>
+            </div>
+          </div>
 
           <div className="mt-4 pt-4 border-t border-border/60 text-xs text-muted flex items-start gap-2">
-            <CheckCircle2 className="w-4 h-4 text-green-500 shrink-0 mt-0.5" />
+            <ShieldCheck className="w-4 h-4 text-green-500 shrink-0 mt-0.5" />
             <span>
-              Once launched, the agent will automatically discover local Windows Spooler printers,
-              register them with this shop, and poll for print jobs.
+              Hardware binding uses Windows DPAPI local encryption. Pairing is a one-time operation
+              per PC.
             </span>
           </div>
         </div>

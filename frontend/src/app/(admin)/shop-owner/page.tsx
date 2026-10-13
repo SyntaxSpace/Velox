@@ -72,7 +72,15 @@ export default function ShopOwnerDashboardPage() {
   });
 
   const activeDevice =
-    printerData?.devices && printerData.devices.length > 0 ? printerData.devices[0] : null;
+    printerData?.devices && printerData.devices.length > 0
+      ? [...printerData.devices].sort((a, b) => {
+          if (a.status === 'ONLINE' && b.status !== 'ONLINE') return -1;
+          if (b.status === 'ONLINE' && a.status !== 'ONLINE') return 1;
+          const timeA = a.lastHeartbeat ? new Date(a.lastHeartbeat).getTime() : 0;
+          const timeB = b.lastHeartbeat ? new Date(b.lastHeartbeat).getTime() : 0;
+          return timeB - timeA;
+        })[0]
+      : null;
 
   const formatHeartbeat = (dateString?: string | null) => {
     if (!dateString) return 'Never';
@@ -468,11 +476,20 @@ export default function ShopOwnerDashboardPage() {
 
                 <div className="text-left sm:text-right shrink-0">
                   <span className="text-[11px] text-muted block">Polling interval: 5s</span>
-                  <span className="text-[11px] font-mono text-emerald-600 dark:text-emerald-400 font-semibold">
+                  <span className="text-[11px] font-mono text-emerald-600 dark:text-emerald-400 font-semibold block">
                     {activeDevice?.status === 'ONLINE'
                       ? '● Ready for Instant Spooling'
                       : '○ Standby'}
                   </span>
+                  {printerData?.devices && printerData.devices.length > 1 && (
+                    <Link
+                      href="/shop-owner/printers"
+                      className="inline-block text-[10px] text-primary hover:underline mt-1 font-medium"
+                    >
+                      {printerData.devices.filter((d) => d.status === 'ONLINE').length} of{' '}
+                      {printerData.devices.length} nodes online →
+                    </Link>
+                  )}
                 </div>
               </div>
             </div>
