@@ -293,7 +293,7 @@ export default function ShopOwnerOrderDetailPage({
               <>
                 <p className="text-xs text-muted mb-4">
                   Dispatch is limited to the oldest paid order and requires the Agent and B&W
-                  printer to be online. This demo supports single-sided A4 jobs.
+                  printer to be online.
                 </p>
                 <button
                   type="button"

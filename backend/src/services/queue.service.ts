@@ -328,12 +328,9 @@ export class QueueService {
     }
     if (
       existingOrder.color.toLowerCase() !== 'bw' ||
-      existingOrder.doubleSided ||
       existingOrder.paperSize.toUpperCase() !== 'A4'
     ) {
-      throw AppError.badRequest(
-        'The connected demo printer supports B&W, single-sided A4 jobs only',
-      );
+      throw AppError.badRequest('The connected printer supports B&W A4 jobs only');
     }
 
     const fileInfo = await agentService.getAuthorizedOrderFile(orderId, shopId);
@@ -456,8 +453,6 @@ export class QueueService {
                 'Send To OneNote 2016',
                 'OneNote (Desktop)',
                 'OneNote (Desktop) - Protected',
-                'MF240 Series',
-                'Canon MF240 Series UFRII LT',
               ],
             },
           },
@@ -560,7 +555,6 @@ export class QueueService {
         shopPrinters.find(
           (p) =>
             p.status === 'ONLINE' &&
-            !p.name.includes('MF240') &&
             !p.name.includes('OneNote') &&
             !p.name.includes('PDF') &&
             !p.name.includes('Fax'),

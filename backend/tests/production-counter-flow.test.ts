@@ -303,12 +303,12 @@ describe('Production counter payment and print dispatch', () => {
     const order = setCounterOrder({
       orderStatus: 'WAITING',
       paymentStatus: 'SUCCESS',
-      doubleSided: true,
+      paperSize: 'A3',
     });
     (prisma.order as any).findUnique = vi.fn().mockResolvedValue(order);
 
     await expect(queueService.dispatchNextOrder(ORDER_ID, SHOP_ID, OWNER_ID)).rejects.toThrow(
-      /single-sided A4/,
+      /B&W A4/,
     );
     expect(agentService.getAuthorizedOrderFile).not.toHaveBeenCalled();
   });
