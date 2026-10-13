@@ -142,34 +142,53 @@ export default function QrStandPoster({ shop, backHref, backLabel }: QrStandPost
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
 
-      // Shop Name (y = 445)
+      // Shop Name (y = 475 - well below PRINTS AHEAD at 391)
       ctx.font =
-        'bold 36px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif';
-      ctx.fillStyle = '#09090b';
-      const cleanShopName = truncateText(ctx, shop.name || 'Velox Print Point', 720);
-      ctx.fillText(cleanShopName, 527.5, 442);
+        'bold 26px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif';
+      ctx.fillStyle = '#18181b';
+      const cleanShopName = truncateText(ctx, shop.name || 'Velox Print Point', 680);
+      ctx.fillText(cleanShopName, 527.5, 475);
 
-      // Shop Subtitle / Location (y = 485)
+      // Shop Subtitle / Location (y = 512)
       if (locationText) {
         ctx.font =
-          '500 20px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif';
-        ctx.fillStyle = '#64748b';
-        const cleanLocation = truncateText(ctx, locationText, 720);
-        ctx.fillText(cleanLocation, 527.5, 485);
+          '500 16px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif';
+        ctx.fillStyle = '#71717a';
+        const cleanLocation = truncateText(ctx, locationText, 680);
+        ctx.fillText(cleanLocation, 527.5, 512);
       }
 
-      // 3. Draw QR Code Card
-      const cardW = 472;
-      const cardH = 472;
-      const cardX = (1055 - cardW) / 2; // 291.5
-      const cardY = locationText ? 525 : 505;
-      const cardRadius = 28;
+      // 3. Draw QR Code Card with Depth Effect
+      const cardW = 360;
+      const cardH = 360;
+      const cardX = (1055 - cardW) / 2; // 347.5
+      const cardY = locationText ? 555 : 535;
+      const cardRadius = 26;
 
+      // Layer 1: Ambient soft drop shadow
+      ctx.save();
+      ctx.shadowColor = 'rgba(15, 23, 42, 0.15)';
+      ctx.shadowBlur = 36;
+      ctx.shadowOffsetY = 16;
+      ctx.fillStyle = '#ffffff';
+      drawRoundedRect(ctx, cardX, cardY, cardW, cardH, cardRadius);
+      ctx.fill();
+      ctx.restore();
+
+      // Layer 2: Crisper contact shadow for 3D depth
+      ctx.save();
+      ctx.shadowColor = 'rgba(15, 23, 42, 0.08)';
+      ctx.shadowBlur = 12;
+      ctx.shadowOffsetY = 4;
+      ctx.fillStyle = '#ffffff';
+      drawRoundedRect(ctx, cardX, cardY, cardW, cardH, cardRadius);
+      ctx.fill();
+      ctx.restore();
+
+      // Card border & clip
       ctx.save();
       drawRoundedRect(ctx, cardX, cardY, cardW, cardH, cardRadius);
-      ctx.fillStyle = '#ffffff';
-      ctx.fill();
-      ctx.lineWidth = 2;
+      ctx.lineWidth = 1.5;
       ctx.strokeStyle = '#e4e4e7';
       ctx.stroke();
       ctx.clip();
@@ -182,7 +201,7 @@ export default function QrStandPoster({ shop, backHref, backLabel }: QrStandPost
         qrImg.onerror = () => reject(new Error('Failed to load QR code image'));
       });
 
-      const qrSize = 440;
+      const qrSize = 320;
       const qrX = cardX + (cardW - qrSize) / 2;
       const qrY = cardY + (cardH - qrSize) / 2;
       ctx.drawImage(qrImg, qrX, qrY, qrSize, qrSize);
@@ -339,7 +358,7 @@ export default function QrStandPoster({ shop, backHref, backLabel }: QrStandPost
           {/* Branded Stand Poster Card */}
           <div
             ref={posterRef}
-            className="print-stand-poster relative aspect-[1055/1491] w-full max-w-[460px] mx-auto rounded-[28px] sm:rounded-[36px] overflow-hidden shadow-2xl shadow-zinc-950/10 border border-zinc-200/80 bg-white select-none transition-transform"
+            className="print-stand-poster relative aspect-[1055/1491] w-full max-w-[440px] mx-auto rounded-[28px] sm:rounded-[36px] overflow-hidden shadow-2xl shadow-zinc-950/10 border border-zinc-200/80 bg-white select-none transition-transform"
           >
             {/* Background Template Image */}
             <img
@@ -348,33 +367,39 @@ export default function QrStandPoster({ shop, backHref, backLabel }: QrStandPost
               className="w-full h-full object-cover pointer-events-none select-none block"
             />
 
-            {/* Dynamic Content in Blank Zone (Between Velox Logo and Scan to Print) */}
-            <div className="absolute inset-x-0 top-[26.2%] h-[43.5%] flex flex-col items-center justify-center px-6 text-center pointer-events-auto">
-              {/* Shop Header Details */}
-              <div className="flex flex-col items-center justify-center mb-2 sm:mb-3 px-2 max-w-[90%]">
-                <h3 className="font-extrabold text-zinc-950 text-base sm:text-lg md:text-xl tracking-tight leading-tight line-clamp-1">
+            {/* Dynamic Content in Blank Zone (Generous spacing between Velox Logo and Scan to Print) */}
+            <div className="absolute inset-x-0 top-[31%] bottom-[33%] flex flex-col items-center justify-center px-6 text-center pointer-events-auto">
+              {/* Reduced Shop Header Details */}
+              <div className="flex flex-col items-center justify-center mb-2.5 sm:mb-3 px-3 max-w-[85%]">
+                <h3 className="font-bold text-zinc-900 text-xs sm:text-sm md:text-[15px] tracking-tight leading-snug line-clamp-1">
                   {shop.name}
                 </h3>
                 {locationText && (
-                  <p className="text-[10px] sm:text-xs text-zinc-500 font-medium tracking-normal line-clamp-1 mt-0.5">
+                  <p className="text-[9px] sm:text-[10px] md:text-[11px] text-zinc-500 font-medium tracking-normal line-clamp-1 mt-0.5">
                     {locationText}
                   </p>
                 )}
               </div>
 
-              {/* QR Code Container */}
-              <div className="bg-white p-2.5 sm:p-3 md:p-3.5 rounded-2xl sm:rounded-3xl border border-zinc-200/90 shadow-md flex items-center justify-center transition-transform hover:scale-[1.02]">
-                {qrDataUrl ? (
-                  <img
-                    src={qrDataUrl}
-                    alt={`${shop.name} QR Code`}
-                    className="w-36 h-36 sm:w-44 sm:h-44 md:w-52 md:h-52 object-contain"
-                  />
-                ) : (
-                  <div className="w-36 h-36 sm:w-44 sm:h-44 md:w-52 md:h-52 flex items-center justify-center">
-                    <Loader2 className="w-8 h-8 animate-spin text-zinc-400" />
-                  </div>
-                )}
+              {/* QR Code Container with Depth Effect */}
+              <div className="relative group">
+                {/* Ambient Soft Glow Behind Card */}
+                <div className="absolute -inset-1.5 rounded-[24px] sm:rounded-[30px] bg-gradient-to-b from-zinc-300/40 via-zinc-400/25 to-zinc-500/15 -z-10 blur-[8px] opacity-75 group-hover:opacity-100 transition-opacity" />
+
+                {/* Elevated Card */}
+                <div className="relative bg-white p-2 sm:p-2.5 md:p-3 rounded-2xl sm:rounded-3xl border border-zinc-200/90 ring-1 ring-zinc-950/[0.04] shadow-[0_12px_26px_-6px_rgba(0,0,0,0.13),0_4px_10px_rgba(0,0,0,0.05),0_0_0_1px_rgba(0,0,0,0.04)] hover:shadow-[0_20px_36px_-8px_rgba(0,0,0,0.20),0_6px_14px_rgba(0,0,0,0.07),0_0_0_1px_rgba(0,0,0,0.05)] hover:-translate-y-0.5 transition-all duration-300 flex items-center justify-center">
+                  {qrDataUrl ? (
+                    <img
+                      src={qrDataUrl}
+                      alt={`${shop.name} QR Code`}
+                      className="w-28 h-28 sm:w-32 sm:h-32 md:w-36 md:h-36 object-contain block relative z-10 rounded-lg sm:rounded-xl"
+                    />
+                  ) : (
+                    <div className="w-28 h-28 sm:w-32 sm:h-32 md:w-36 md:h-36 flex items-center justify-center">
+                      <Loader2 className="w-7 h-7 animate-spin text-zinc-400" />
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
           </div>
