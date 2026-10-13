@@ -13,6 +13,7 @@ import {
   ShopPricing,
 } from '@/services/shop.service';
 import { createOrder } from '@/services/order.service';
+import { createRazorpayOrder, verifyRazorpayPayment } from '@/services/payment.service';
 import { useAuthStore } from '@/store/auth';
 import VeloxLogo from '@/components/shared/VeloxLogo';
 import SegmentedControl from '@/components/ui/SegmentedControl';
@@ -31,6 +32,7 @@ import {
   Smartphone,
   ChevronRight,
   Sparkles,
+  CreditCard,
 } from 'lucide-react';
 
 const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB
@@ -58,6 +60,20 @@ async function getPdfPageCount(selectedFile: File): Promise<number> {
   }
 
   return 1;
+}
+
+function loadRazorpayScript(): Promise<boolean> {
+  return new Promise((resolve) => {
+    if (typeof window === 'undefined') return resolve(false);
+    if ((window as any).Razorpay) return resolve(true);
+
+    const script = document.createElement('script');
+    script.src = 'https://checkout.razorpay.com/v1/checkout.js';
+    script.async = true;
+    script.onload = () => resolve(true);
+    script.onerror = () => resolve(false);
+    document.body.appendChild(script);
+  });
 }
 
 export default function ShopPage() {
@@ -103,6 +119,7 @@ export default function ShopPage() {
   const [customerName, setCustomerName] = useState<string>('');
   const [customerPhone, setCustomerPhone] = useState<string>('');
   const [customerError, setCustomerError] = useState<string | null>(null);
+  const [paymentChoice, setPaymentChoice] = useState<'online' | 'counter'>('online');
 
   // Order Submission State
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
@@ -112,6 +129,9 @@ export default function ShopPage() {
     orderCode: string;
     estimatedCost: number;
     totalPages: number;
+    paymentMethod: 'UPI' | 'COUNTER';
+    paymentPending?: boolean;
+    isDispatched?: boolean;
   } | null>(null);
   const [copiedCode, setCopiedCode] = useState<boolean>(false);
 
@@ -240,7 +260,7 @@ export default function ShopPage() {
       formData.append('doubleSided', String(doubleSided));
       formData.append('orientation', 'portrait');
       formData.append('paperSize', 'A4');
-      formData.append('paymentMethod', 'COUNTER');
+      formData.append('paymentMethod', paymentChoice === 'online' ? 'UPI' : 'COUNTER');
       formData.append('pageCount', String(effectivePages));
       formData.append('customerName', trimmedName);
       formData.append('customerPhone', cleanPhone);
@@ -249,13 +269,96 @@ export default function ShopPage() {
         setUploadProgress(progress);
       });
 
-      setIsBottomSheetOpen(false);
-      setSubmittedOrder({
-        orderId: result.orderId,
-        orderCode: result.orderCode,
-        estimatedCost: result.estimatedCost,
-        totalPages: result.totalPages,
-      });
+      if (paymentChoice === 'counter') {
+        setIsBottomSheetOpen(false);
+        setSubmittedOrder({
+          orderId: result.orderId,
+          orderCode: result.orderCode,
+          estimatedCost: result.estimatedCost,
+          totalPages: result.totalPages,
+          paymentMethod: 'COUNTER',
+        });
+        return;
+      }
+
+      // Online payment via Razorpay Standard Checkout
+      try {
+        const rzpOrder = await createRazorpayOrder(result.orderId);
+        const scriptLoaded = await loadRazorpayScript();
+        if (!scriptLoaded) {
+          throw new Error(
+            'Payment gateway could not be loaded. Please check your internet connection.',
+          );
+        }
+
+        const options = {
+          key: rzpOrder.keyId,
+          amount: rzpOrder.amount,
+          currency: rzpOrder.currency,
+          name: shop?.name || 'Velox Smart Printing',
+          description: `Print Order ${result.orderCode}`,
+          order_id: rzpOrder.razorpayOrderId,
+          prefill: {
+            name: trimmedName,
+            contact: cleanPhone,
+          },
+          theme: {
+            color: '#000000',
+          },
+          handler: async (response: any) => {
+            try {
+              setIsSubmitting(true);
+              const verifyResult = await verifyRazorpayPayment({
+                orderId: result.orderId,
+                razorpayOrderId: response.razorpay_order_id,
+                razorpayPaymentId: response.razorpay_payment_id,
+                razorpaySignature: response.razorpay_signature,
+              });
+
+              setIsBottomSheetOpen(false);
+              setSubmittedOrder({
+                orderId: result.orderId,
+                orderCode: result.orderCode,
+                estimatedCost: result.estimatedCost,
+                totalPages: result.totalPages,
+                paymentMethod: 'UPI',
+                isDispatched: verifyResult.dispatched,
+              });
+            } catch (verifyErr: any) {
+              setCustomerError(
+                verifyErr?.response?.data?.message ||
+                  'Payment verification failed. Please contact support.',
+              );
+              setIsBottomSheetOpen(true);
+            } finally {
+              setIsSubmitting(false);
+            }
+          },
+          modal: {
+            ondismiss: () => {
+              setIsSubmitting(false);
+              setIsBottomSheetOpen(false);
+              setSubmittedOrder({
+                orderId: result.orderId,
+                orderCode: result.orderCode,
+                estimatedCost: result.estimatedCost,
+                totalPages: result.totalPages,
+                paymentMethod: 'UPI',
+                paymentPending: true,
+              });
+            },
+          },
+        };
+
+        const razorpayInstance = new (window as any).Razorpay(options);
+        razorpayInstance.open();
+      } catch (payErr: any) {
+        setCustomerError(
+          payErr?.response?.data?.message ||
+            payErr?.message ||
+            'Could not initiate online payment.',
+        );
+      }
     } catch (err: any) {
       const message =
         err?.response?.data?.message || 'Failed to submit print order. Please try again.';
@@ -409,12 +512,74 @@ export default function ShopPage() {
                 </strong>
               </div>
               <div className="pt-2 border-t border-border flex justify-between items-center">
-                <span className="font-semibold text-foreground">Total to Pay (Counter)</span>
+                <span className="font-semibold text-foreground">
+                  {submittedOrder.paymentMethod === 'UPI'
+                    ? submittedOrder.paymentPending
+                      ? 'Payment Pending (Online)'
+                      : 'Paid Online (Razorpay)'
+                    : 'Total to Pay (Counter)'}
+                </span>
                 <span className="text-base font-bold text-foreground font-mono">
                   ₹{submittedOrder.estimatedCost}
                 </span>
               </div>
             </div>
+
+            {/* Payment Pending Banner if customer dismissed Razorpay */}
+            {submittedOrder.paymentMethod === 'UPI' && submittedOrder.paymentPending && (
+              <div className="p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-xs text-amber-800 dark:text-amber-300 space-y-2 text-left">
+                <p className="font-semibold">Online payment was not completed yet.</p>
+                <p className="text-[11px] text-muted">
+                  Your order is reserved. Complete payment now to automatically release the document
+                  to the printer, or pay cash at the counter.
+                </p>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    if (!submittedOrder) return;
+                    try {
+                      setIsSubmitting(true);
+                      const rzpOrder = await createRazorpayOrder(submittedOrder.orderId);
+                      await loadRazorpayScript();
+                      const options = {
+                        key: rzpOrder.keyId,
+                        amount: rzpOrder.amount,
+                        currency: rzpOrder.currency,
+                        name: shop?.name || 'Velox Smart Printing',
+                        description: `Print Order ${submittedOrder.orderCode}`,
+                        order_id: rzpOrder.razorpayOrderId,
+                        prefill: { name: customerName, contact: customerPhone },
+                        theme: { color: '#000000' },
+                        handler: async (response: any) => {
+                          const verifyResult = await verifyRazorpayPayment({
+                            orderId: submittedOrder.orderId,
+                            razorpayOrderId: response.razorpay_order_id,
+                            razorpayPaymentId: response.razorpay_payment_id,
+                            razorpaySignature: response.razorpay_signature,
+                          });
+                          setSubmittedOrder({
+                            ...submittedOrder,
+                            paymentPending: false,
+                            isDispatched: verifyResult.dispatched,
+                          });
+                        },
+                      };
+                      const rzp = new (window as any).Razorpay(options);
+                      rzp.open();
+                    } catch (err: any) {
+                      alert(err?.message || 'Could not launch payment gateway');
+                    } finally {
+                      setIsSubmitting(false);
+                    }
+                  }}
+                  disabled={isSubmitting}
+                  className="w-full flex items-center justify-center gap-2 py-2 px-3 rounded-lg bg-amber-600 text-white font-semibold text-xs hover:bg-amber-700 transition-colors"
+                >
+                  <CreditCard className="h-3.5 w-3.5" />
+                  <span>Complete Online Payment Now</span>
+                </button>
+              </div>
+            )}
 
             {/* Actions */}
             <div className="space-y-2 pt-2">
@@ -757,6 +922,27 @@ export default function ShopPage() {
                   </p>
                 </div>
 
+                {/* Exactly Two Payment Choices */}
+                <div className="space-y-1.5 pt-1">
+                  <label className="block text-xs font-semibold text-foreground">
+                    Payment Choice
+                  </label>
+                  <SegmentedControl
+                    options={[
+                      { value: 'online', label: '⚡ Pay Online (Instant)' },
+                      { value: 'counter', label: '💵 Pay at Counter' },
+                    ]}
+                    value={paymentChoice}
+                    onChange={(val) => setPaymentChoice(val as 'online' | 'counter')}
+                    className="w-full justify-between grid grid-cols-2 text-center"
+                  />
+                  <p className="text-[11px] text-muted">
+                    {paymentChoice === 'online'
+                      ? 'UPI, Card, NetBanking. Document prints automatically upon payment.'
+                      : 'Pay cash to the shopkeeper at the counter to start printing.'}
+                  </p>
+                </div>
+
                 {/* Upload Progress Bar if submitting */}
                 {isSubmitting && (
                   <div className="space-y-1.5 pt-1">
@@ -782,11 +968,22 @@ export default function ShopPage() {
                   {isSubmitting ? (
                     <>
                       <Loader2 className="h-4 w-4 animate-spin" />
-                      <span>Submitting Order...</span>
+                      <span>
+                        {uploadProgress < 100
+                          ? `Uploading (${uploadProgress}%)...`
+                          : paymentChoice === 'online'
+                            ? 'Opening Razorpay Checkout...'
+                            : 'Submitting Order...'}
+                      </span>
+                    </>
+                  ) : paymentChoice === 'online' ? (
+                    <>
+                      <CreditCard className="h-4 w-4" />
+                      <span>Pay Online (₹{estimatedCost}) & Print</span>
                     </>
                   ) : (
                     <>
-                      <span>Submit Print Order</span>
+                      <span>Confirm & Pay at Counter (₹{estimatedCost})</span>
                       <ChevronRight className="h-4 w-4" />
                     </>
                   )}

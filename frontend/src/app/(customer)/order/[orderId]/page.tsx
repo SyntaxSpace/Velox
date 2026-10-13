@@ -17,6 +17,7 @@ import {
   ArrowLeft,
 } from 'lucide-react';
 import { getOrderStatus, cancelOrder, simulatePayment } from '@/services/order.service';
+import { createRazorpayOrder, verifyRazorpayPayment } from '@/services/payment.service';
 import StatusBadge from '@/components/ui/StatusBadge';
 import VeloxLogo from '@/components/shared/VeloxLogo';
 
@@ -36,10 +37,26 @@ function getStepIndex(status: string) {
     : 0;
 }
 
+function loadRazorpayScript(): Promise<boolean> {
+  return new Promise((resolve) => {
+    if (typeof window === 'undefined') return resolve(false);
+    if ((window as any).Razorpay) return resolve(true);
+
+    const script = document.createElement('script');
+    script.src = 'https://checkout.razorpay.com/v1/checkout.js';
+    script.async = true;
+    script.onload = () => resolve(true);
+    script.onerror = () => resolve(false);
+    document.body.appendChild(script);
+  });
+}
+
 export default function OrderStatusPage({ params }: { params: Promise<{ orderId: string }> }) {
   const router = useRouter();
   const { orderId } = use(params);
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
+  const [isPaying, setIsPaying] = useState(false);
+  const [payError, setPayError] = useState<string | null>(null);
 
   const {
     data: order,
@@ -248,11 +265,87 @@ export default function OrderStatusPage({ params }: { params: Promise<{ orderId:
 
         {/* Actions */}
         <div className="space-y-3">
+          {order.orderStatus === 'PENDING' && (
+            <div className="space-y-2">
+              <button
+                onClick={async () => {
+                  if (!order) return;
+                  setIsPaying(true);
+                  setPayError(null);
+                  try {
+                    const rzpOrder = await createRazorpayOrder(orderId);
+                    const scriptLoaded = await loadRazorpayScript();
+                    if (!scriptLoaded) throw new Error('Payment gateway could not be loaded.');
+
+                    const options = {
+                      key: rzpOrder.keyId,
+                      amount: rzpOrder.amount,
+                      currency: rzpOrder.currency,
+                      name: 'Velox Smart Printing',
+                      description: `Print Order ${order.orderCode}`,
+                      order_id: rzpOrder.razorpayOrderId,
+                      theme: { color: '#000000' },
+                      handler: async (response: any) => {
+                        try {
+                          await verifyRazorpayPayment({
+                            orderId,
+                            razorpayOrderId: response.razorpay_order_id,
+                            razorpayPaymentId: response.razorpay_payment_id,
+                            razorpaySignature: response.razorpay_signature,
+                          });
+                          await refetch();
+                        } catch (err: any) {
+                          setPayError(
+                            err?.response?.data?.message || 'Payment verification failed.',
+                          );
+                        } finally {
+                          setIsPaying(false);
+                        }
+                      },
+                      modal: {
+                        ondismiss: () => {
+                          setIsPaying(false);
+                        },
+                      },
+                    };
+
+                    const razorpayInstance = new (window as any).Razorpay(options);
+                    razorpayInstance.open();
+                  } catch (err: any) {
+                    setPayError(
+                      err?.response?.data?.message || err?.message || 'Failed to initiate payment.',
+                    );
+                    setIsPaying(false);
+                  }
+                }}
+                disabled={isPaying}
+                className="w-full bg-primary text-primary-foreground rounded-xl py-3.5 text-xs font-semibold flex items-center justify-center gap-2 hover:opacity-90 active:scale-[0.98] disabled:opacity-50 transition-all shadow-2xs"
+              >
+                {isPaying ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <CreditCard className="w-4 h-4" />
+                )}
+                <span>
+                  {isPaying
+                    ? 'Opening Razorpay Checkout...'
+                    : `Pay Online (₹${parseFloat(order.totalPrice || '0').toFixed(2)}) & Print`}
+                </span>
+              </button>
+
+              {payError && (
+                <p className="text-[11px] text-red-600 dark:text-red-400 text-center font-semibold">
+                  {payError}
+                </p>
+              )}
+            </div>
+          )}
+
           {process.env.NODE_ENV === 'development' && order.orderStatus === 'PENDING' && (
             <button
               onClick={() => simulatePaymentMutation.mutate()}
-              disabled={simulatePaymentMutation.isPending}
-              className="w-full bg-primary text-primary-foreground rounded-xl py-3 text-xs font-semibold flex items-center justify-center gap-2 hover:opacity-90 disabled:opacity-50 transition-opacity"
+              disabled={simulatePaymentMutation.isPending || isPaying}
+              className="w-full bg-surface border border-border text-foreground rounded-xl py-2.5 text-xs font-semibold flex items-center justify-center gap-2 hover:bg-neutral-100 dark:hover:bg-neutral-800 disabled:opacity-50 transition-colors"
             >
               {simulatePaymentMutation.isPending ? (
                 <Loader2 className="w-4 h-4 animate-spin" />

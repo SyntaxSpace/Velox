@@ -137,6 +137,14 @@ export function initializeSocket(httpServer: HttpServer): SocketIOServer {
           );
 
           socket.emit('agent.registered', { success: true, shopId, deviceId });
+
+          // Auto-dispatch next queued paid order upon agent registration / reconnection
+          queueService.autoDispatchNextOrder(shopId).catch((err: any) => {
+            logger.debug(
+              { shopId, deviceId, err: err?.message || err },
+              'Auto-dispatch upon agent reconnection skipped or idle',
+            );
+          });
         } catch (err: any) {
           logger.error({ err: err.message }, 'Error in agent.register handler');
           socket.emit('agent.error', { message: 'Agent registration failed' });
@@ -252,6 +260,13 @@ export function initializeSocket(httpServer: HttpServer): SocketIOServer {
       try {
         await queueService.transitionOrder(data.orderId, OrderStatus.COMPLETED, socket.data.shopId);
         logger.info({ orderId: data.orderId }, 'Order transitioned to COMPLETED');
+        // Automatically dispatch the next waiting paid order in the shop queue
+        queueService.autoDispatchNextOrder(socket.data.shopId).catch((err) => {
+          logger.debug(
+            { shopId: socket.data.shopId, err: err.message },
+            'Auto-dispatch after job.completed skipped',
+          );
+        });
       } catch (e: any) {
         logger.error(
           { err: e.message, orderId: data.orderId },

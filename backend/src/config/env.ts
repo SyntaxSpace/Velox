@@ -21,6 +21,9 @@ const envSchema = z
     SUPABASE_URL: z.string().url().optional(),
     SUPABASE_SECRET_KEY: z.string().min(1).optional(),
     SUPABASE_STORAGE_BUCKET: z.string().min(1).default('velox-print-documents'),
+    RAZORPAY_KEY_ID: z.string().optional(),
+    RAZORPAY_KEY_SECRET: z.string().optional(),
+    RAZORPAY_WEBHOOK_SECRET: z.string().optional(),
   })
   .superRefine((values, context) => {
     const origins = values.CORS_ORIGIN.split(',')

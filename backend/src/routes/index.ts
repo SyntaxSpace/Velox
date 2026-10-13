@@ -7,6 +7,7 @@ import adminRouter from './admin.routes';
 import agentRouter from './agent.routes';
 import publicRouter from './public.routes';
 import partnerRouter from './partner.routes';
+import paymentRouter from './payment.routes';
 import devRouter from './dev.routes';
 const router = Router();
 
@@ -14,6 +15,7 @@ router.use(healthRouter);
 router.use('/auth', authRouter);
 router.use('/shops', shopRouter);
 router.use('/orders', orderRouter);
+router.use('/payments', paymentRouter);
 router.use('/admin', adminRouter);
 router.use('/agent', agentRouter);
 router.use('/public', publicRouter);

@@ -515,6 +515,201 @@ export class QueueService {
     };
   }
 
+  /**
+   * Automatically dispatch the oldest eligible waiting paid order for a shop
+   * if the agent and printer are ready and no job is currently in progress.
+   */
+  async autoDispatchNextOrder(
+    shopId: string,
+  ): Promise<{ dispatched: boolean; orderId?: string; printerName?: string; reason?: string }> {
+    try {
+      const { agentService } = await import('./agent.service');
+      const { emitToAgentDevice, emitToClientShop, isAgentConnected } = await import('../socket');
+
+      const shop = await prisma.shop.findUnique({
+        where: { id: shopId },
+        select: { id: true, status: true },
+      });
+      if (!shop || shop.status !== 'ACTIVE') {
+        return { dispatched: false, reason: 'SHOP_INACTIVE' };
+      }
+
+      // Find the oldest waiting paid order
+      const oldestWaiting = await prisma.order.findFirst({
+        where: {
+          shopId,
+          orderStatus: OrderStatus.WAITING,
+          paymentStatus: PaymentStatus.SUCCESS,
+        },
+        orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+        include: { files: true },
+      });
+      if (!oldestWaiting) {
+        return { dispatched: false, reason: 'NO_WAITING_ORDER' };
+      }
+
+      // Check if another order is already active
+      const activeOrder = await prisma.order.findFirst({
+        where: {
+          shopId,
+          orderStatus: {
+            in: [OrderStatus.ASSIGNED, OrderStatus.DOWNLOADING, OrderStatus.PRINTING],
+          },
+        },
+        select: { id: true },
+      });
+      if (activeOrder) {
+        return { dispatched: false, reason: 'JOB_ALREADY_ACTIVE' };
+      }
+
+      // Check supported print specifications (B&W A4)
+      if (
+        oldestWaiting.color.toLowerCase() !== 'bw' ||
+        oldestWaiting.paperSize.toUpperCase() !== 'A4'
+      ) {
+        return { dispatched: false, reason: 'UNSUPPORTED_PRINT_SPECS' };
+      }
+
+      // Check agent device connectivity
+      const heartbeatCutoff = new Date(Date.now() - 90_000);
+      const connectedDevice = await prisma.device.findFirst({
+        where: {
+          shopId,
+          status: 'ONLINE',
+          lastHeartbeat: { gte: heartbeatCutoff },
+        },
+        orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+        select: { id: true, deviceId: true },
+      });
+      if (!connectedDevice || !(await isAgentConnected(connectedDevice.deviceId))) {
+        return { dispatched: false, reason: 'AGENT_OFFLINE' };
+      }
+
+      const fileInfo = await agentService.getAuthorizedOrderFile(oldestWaiting.id, shopId);
+      let printerName = '';
+
+      await prisma.$transaction(async (tx) => {
+        const shops = await tx.$queryRaw<Array<{ id: string; status: string }>>(
+          Prisma.sql`SELECT id, status FROM shops WHERE id = ${shopId}::uuid FOR UPDATE`,
+        );
+        if (!shops[0] || shops[0].status !== 'ACTIVE') {
+          throw new Error('Shop not active');
+        }
+
+        const currentlyActive = await tx.order.findFirst({
+          where: {
+            shopId,
+            orderStatus: {
+              in: [OrderStatus.ASSIGNED, OrderStatus.DOWNLOADING, OrderStatus.PRINTING],
+            },
+          },
+          select: { id: true },
+        });
+        if (currentlyActive) throw new Error('Active job in progress');
+
+        const firstWaiting = await tx.order.findFirst({
+          where: {
+            shopId,
+            orderStatus: OrderStatus.WAITING,
+            paymentStatus: PaymentStatus.SUCCESS,
+          },
+          orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+          select: { id: true },
+        });
+        if (firstWaiting?.id !== oldestWaiting.id) {
+          throw new Error('Order is no longer oldest waiting order');
+        }
+
+        let printer = await tx.printer.findFirst({
+          where: {
+            shopId,
+            status: PrinterStatus.ONLINE,
+            printerType: PrinterType.BLACK_WHITE,
+            name: { contains: '1018' },
+          },
+          select: { id: true, name: true },
+        });
+
+        if (!printer) {
+          printer = await tx.printer.findFirst({
+            where: {
+              shopId,
+              status: PrinterStatus.ONLINE,
+              printerType: PrinterType.BLACK_WHITE,
+              name: {
+                notIn: [
+                  'Fax',
+                  'Microsoft Print to PDF',
+                  'Microsoft XPS Document Writer',
+                  'Send To OneNote 2016',
+                  'OneNote (Desktop)',
+                  'OneNote (Desktop) - Protected',
+                ],
+              },
+            },
+            orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+            select: { id: true, name: true },
+          });
+        }
+
+        if (!printer) {
+          throw new Error('No online printer available');
+        }
+
+        const updated = await tx.order.updateMany({
+          where: {
+            id: oldestWaiting.id,
+            shopId,
+            orderStatus: OrderStatus.WAITING,
+            paymentStatus: PaymentStatus.SUCCESS,
+          },
+          data: { orderStatus: OrderStatus.ASSIGNED, printerId: printer.id },
+        });
+        if (updated.count !== 1) throw new Error('Order already transitioned');
+
+        await tx.orderEvent.create({
+          data: { orderId: oldestWaiting.id, event: OrderEventType.ORDER_ASSIGNED },
+        });
+
+        printerName = printer.name;
+      });
+
+      const payload = {
+        orderId: oldestWaiting.id,
+        orderCode: oldestWaiting.orderCode,
+        shopId,
+        printerName,
+        downloadUrl: `/api/v1/agent/orders/${oldestWaiting.id}/file`,
+        expectedChecksum: fileInfo.checksum,
+        fileSize: fileInfo.size,
+        copies: oldestWaiting.copies,
+        color: oldestWaiting.color,
+        doubleSided: oldestWaiting.doubleSided,
+        orientation: oldestWaiting.orientation,
+        paperSize: oldestWaiting.paperSize,
+      };
+
+      emitToAgentDevice(connectedDevice.deviceId, 'job.assigned', payload);
+      emitToClientShop(shopId, 'order.assigned', { orderId: oldestWaiting.id, printerName });
+      emitToClientShop(shopId, 'order.status.changed', {
+        orderId: oldestWaiting.id,
+        orderStatus: OrderStatus.ASSIGNED,
+        paymentStatus: PaymentStatus.SUCCESS,
+      });
+      emitToClientShop(shopId, 'queue.updated', { shopId, orderId: oldestWaiting.id });
+
+      logger.info(
+        { orderId: oldestWaiting.id, shopId, printerName },
+        'Auto-dispatched paid order to shop Agent',
+      );
+
+      return { dispatched: true, orderId: oldestWaiting.id, printerName };
+    } catch (err: any) {
+      logger.info({ shopId, message: err.message }, 'Auto-dispatch condition not met or skipped');
+      return { dispatched: false, reason: err.message };
+    }
+  }
+
   async assignOrder(orderId: string, printerName?: string) {
     let order = await orderRepository.findById(orderId);
     if (!order) {
