@@ -15,6 +15,7 @@ import {
 import { createOrder } from '@/services/order.service';
 import { useAuthStore } from '@/store/auth';
 import VeloxLogo from '@/components/shared/VeloxLogo';
+import SegmentedControl from '@/components/ui/SegmentedControl';
 import {
   Upload,
   FileText,
@@ -175,10 +176,8 @@ export default function ShopPage() {
     [handleFileSelect],
   );
 
-  // Trigger bottom sheet popup when user clicks the main Upload button
   const handleOpenUploadSheet = () => {
     if (!file) {
-      // Trigger file selector if no file is chosen yet
       if (fileInputRef.current) {
         fileInputRef.current.click();
       }
@@ -188,7 +187,6 @@ export default function ShopPage() {
     setIsBottomSheetOpen(true);
   };
 
-  // Submit order with Customer Name and Phone
   const handleConfirmAndUpload = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!file) {
@@ -210,7 +208,6 @@ export default function ShopPage() {
       return;
     }
 
-    // Save to localStorage for repeat customer convenience
     if (typeof window !== 'undefined') {
       localStorage.setItem('velox_customer_name', trimmedName);
       localStorage.setItem('velox_customer_phone', cleanPhone);
@@ -221,7 +218,6 @@ export default function ShopPage() {
     setUploadProgress(0);
 
     try {
-      // Ensure guest session if not logged in
       if (!isAuthenticated) {
         let guestToken = localStorage.getItem('velox_guest_session');
         if (!guestToken) {
@@ -253,7 +249,6 @@ export default function ShopPage() {
         setUploadProgress(progress);
       });
 
-      // Close bottom sheet and transition to Submitted screen
       setIsBottomSheetOpen(false);
       setSubmittedOrder({
         orderId: result.orderId,
@@ -292,8 +287,8 @@ export default function ShopPage() {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="flex flex-col items-center gap-3">
-          <Loader2 className="h-8 w-8 animate-spin text-primary" />
-          <p className="text-muted text-xs">Loading shop counter...</p>
+          <Loader2 className="h-7 w-7 animate-spin text-primary" />
+          <p className="text-muted text-xs">Connecting to print counter...</p>
         </div>
       </div>
     );
@@ -303,9 +298,9 @@ export default function ShopPage() {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background px-4">
         <div className="text-center max-w-sm">
-          <h1 className="text-xl font-bold mb-2">Shop Not Found</h1>
+          <h1 className="text-lg font-bold mb-2">Shop Not Found</h1>
           <p className="text-muted text-xs mb-6">
-            This print shop does not exist or the QR link has expired.
+            This print counter link does not exist or has expired.
           </p>
           <button
             onClick={() => router.push('/')}
@@ -321,10 +316,10 @@ export default function ShopPage() {
   return (
     <div className="min-h-screen bg-background text-foreground flex flex-col font-sans">
       {/* Top Header */}
-      <header className="border-b border-border bg-background/95 backdrop-blur sticky top-0 z-20">
+      <header className="border-b border-border/80 bg-background/90 backdrop-blur-md sticky top-0 z-20">
         <div className="max-w-lg mx-auto px-4 py-3 flex items-center justify-between">
           <VeloxLogo className="h-6 w-auto" />
-          <div className="flex items-center gap-1.5 text-[11px] font-medium text-muted bg-surface border border-border px-2.5 py-1 rounded-full">
+          <div className="flex items-center gap-1.5 text-[11px] font-semibold text-emerald-700 dark:text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-0.5 rounded-full">
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
             <span>Counter Ready</span>
           </div>
@@ -332,37 +327,37 @@ export default function ShopPage() {
       </header>
 
       <main className="flex-1 max-w-lg w-full mx-auto px-4 py-6">
-        {/* SUBMITTED SUCCESS SCREEN */}
+        {/* SUBMITTED CELEBRATION SCREEN */}
         {submittedOrder ? (
           <motion.div
-            initial={{ opacity: 0, scale: 0.95 }}
+            initial={{ opacity: 0, scale: 0.98 }}
             animate={{ opacity: 1, scale: 1 }}
-            transition={{ duration: 0.3 }}
-            className="text-center py-4"
+            transition={{ type: 'spring', damping: 28, stiffness: 300 }}
+            className="text-center py-4 space-y-5"
           >
             {/* Success Icon */}
-            <div className="relative inline-flex items-center justify-center mb-4">
-              <div className="absolute inset-0 rounded-full bg-emerald-500/20 blur-xl animate-pulse" />
-              <div className="h-20 w-20 rounded-full bg-emerald-500/10 border-2 border-emerald-500/30 flex items-center justify-center relative">
-                <CheckCircle2 className="h-10 w-10 text-emerald-600 dark:text-emerald-400" />
+            <div className="relative inline-flex items-center justify-center mb-1">
+              <div className="h-16 w-16 rounded-full bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center">
+                <CheckCircle2 className="h-8 w-8 text-emerald-600 dark:text-emerald-400" />
               </div>
             </div>
 
-            <h1 className="text-2xl font-extrabold tracking-tight text-foreground mb-1">
-              Order Submitted!
-            </h1>
-            <p className="text-xs text-muted max-w-xs mx-auto mb-6">
-              Your print job is queued at <strong>{shop.name}</strong>. Collect your prints at the
-              counter.
-            </p>
-
-            {/* Order Code Card */}
-            <div className="p-5 rounded-2xl border border-border bg-surface shadow-sm mb-5 text-center">
-              <p className="text-[11px] font-mono tracking-wider text-muted uppercase mb-1">
-                Pickup Order Code
+            <div>
+              <h1 className="text-2xl font-bold tracking-tight text-foreground">
+                Order Submitted!
+              </h1>
+              <p className="text-xs text-muted max-w-xs mx-auto mt-1">
+                Your print job is queued at <strong>{shop.name}</strong>.
               </p>
-              <div className="flex items-center justify-center gap-3 mb-2">
-                <span className="text-3xl font-mono font-black tracking-widest text-foreground">
+            </div>
+
+            {/* Order Pickup Code Card */}
+            <div className="p-5 rounded-2xl border border-border bg-surface/60 shadow-2xs text-center space-y-2">
+              <span className="text-[10px] font-mono tracking-widest text-muted uppercase block">
+                Counter Pickup Code
+              </span>
+              <div className="flex items-center justify-center gap-3">
+                <span className="text-3xl font-mono font-bold tracking-wider text-foreground">
                   {submittedOrder.orderCode}
                 </span>
                 <button
@@ -378,17 +373,17 @@ export default function ShopPage() {
                 </button>
               </div>
               {copiedCode && (
-                <p className="text-[10px] text-emerald-600 font-semibold mb-1">
+                <p className="text-[11px] text-emerald-600 dark:text-emerald-400 font-semibold">
                   Copied to clipboard!
                 </p>
               )}
               <p className="text-[11px] text-muted">
-                Show this code to the operator to collect your physical print.
+                Show this code at the counter to collect your printed document.
               </p>
             </div>
 
-            {/* Order Summary Details */}
-            <div className="bg-surface/50 border border-border rounded-2xl p-4 text-xs space-y-2.5 mb-6 text-left">
+            {/* Receipt Summary Card */}
+            <div className="bg-surface/40 border border-border rounded-2xl p-4 text-xs space-y-2.5 text-left">
               <div className="flex justify-between items-center text-muted">
                 <span>Customer</span>
                 <strong className="text-foreground font-semibold">
@@ -410,49 +405,48 @@ export default function ShopPage() {
               <div className="flex justify-between items-center text-muted">
                 <span>Print Mode</span>
                 <strong className="text-foreground font-semibold uppercase">
-                  {color === 'color' ? 'Color' : 'B&W'} •{' '}
-                  {doubleSided ? 'Double-sided' : 'Single-sided'}
+                  {color === 'color' ? 'Color' : 'B&W'} · {doubleSided ? 'Duplex' : 'Simplex'}
                 </strong>
               </div>
               <div className="pt-2 border-t border-border flex justify-between items-center">
                 <span className="font-semibold text-foreground">Total to Pay (Counter)</span>
-                <span className="text-base font-bold text-emerald-600 dark:text-emerald-400 font-mono">
+                <span className="text-base font-bold text-foreground font-mono">
                   ₹{submittedOrder.estimatedCost}
                 </span>
               </div>
             </div>
 
-            {/* Actions: Track Button & Print Another */}
-            <div className="space-y-2.5">
+            {/* Actions */}
+            <div className="space-y-2 pt-2">
               <button
                 onClick={() => router.push(`/order/${submittedOrder.orderId}`)}
-                className="w-full flex items-center justify-center gap-2 py-3.5 px-6 rounded-xl bg-primary text-primary-foreground font-semibold text-sm shadow-md hover:opacity-95 active:scale-[0.99] transition-all"
+                className="w-full flex items-center justify-center gap-2 py-3.5 px-6 rounded-xl bg-primary text-primary-foreground font-semibold text-xs sm:text-sm shadow-2xs hover:opacity-90 active:scale-[0.98] transition-all"
               >
-                Track Your Order
+                <span>Track Order Live</span>
                 <ArrowRight className="h-4 w-4" />
               </button>
 
               <button
                 onClick={handleResetForNewOrder}
-                className="w-full py-2.5 px-4 text-xs font-semibold text-muted hover:text-foreground transition-colors"
+                className="w-full py-2 px-4 text-xs font-semibold text-muted hover:text-foreground transition-colors"
               >
                 Print Another Document
               </button>
             </div>
           </motion.div>
         ) : (
-          /* MAIN UPLOAD DIALOG SCREEN */
-          <div>
-            {/* Shop Details Header Card (No printers shown) */}
-            <div className="mb-6 p-4 rounded-2xl border border-border bg-surface/50 flex items-start justify-between gap-3">
+          /* MAIN UPLOAD VIEW */
+          <div className="space-y-4">
+            {/* Shop Details Header Card */}
+            <div className="p-4 rounded-2xl border border-border bg-surface/50 flex items-start justify-between gap-3 shadow-2xs">
               <div>
                 <span className="text-[10px] font-mono font-bold tracking-wider text-primary uppercase bg-primary/10 px-2 py-0.5 rounded-md inline-block mb-1">
-                  OFFICIAL PRINT COUNTER
+                  PRINT COUNTER
                 </span>
-                <h1 className="text-lg font-bold tracking-tight text-foreground">{shop.name}</h1>
+                <h1 className="text-base font-bold tracking-tight text-foreground">{shop.name}</h1>
                 {shop.address && (
                   <p className="text-xs text-muted flex items-center gap-1 mt-0.5">
-                    <MapPin className="h-3 w-3 shrink-0 text-muted" />
+                    <MapPin className="h-3 w-3 shrink-0" />
                     <span>{shop.address}</span>
                   </p>
                 )}
@@ -460,22 +454,22 @@ export default function ShopPage() {
               {shop.phone && (
                 <a
                   href={`tel:${shop.phone}`}
-                  className="p-2 rounded-xl bg-surface border border-border text-muted hover:text-foreground shrink-0"
-                  title="Call Shop"
+                  className="p-2 rounded-xl bg-background border border-border text-muted hover:text-foreground shrink-0 shadow-2xs"
+                  title="Call Store"
                 >
                   <Phone className="h-4 w-4" />
                 </a>
               )}
             </div>
 
-            {/* UPLOAD DIALOG BOX */}
-            <div className="bg-surface border border-border rounded-2xl p-5 sm:p-6 shadow-sm">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-sm font-bold tracking-tight text-foreground flex items-center gap-1.5">
+            {/* UPLOAD DIALOG CARD */}
+            <div className="bg-surface border border-border rounded-2xl p-5 sm:p-6 shadow-2xs space-y-4">
+              <div className="flex items-center justify-between">
+                <h2 className="text-xs font-bold uppercase tracking-wider text-foreground flex items-center gap-1.5">
                   <Upload className="h-4 w-4 text-primary" />
-                  Upload Document
+                  Select Document
                 </h2>
-                <span className="text-[11px] text-muted font-medium">Max 50MB • PDF, JPG, PNG</span>
+                <span className="text-[11px] text-muted">Max 50MB · PDF, PNG, JPG</span>
               </div>
 
               {/* Hidden File Input */}
@@ -490,7 +484,7 @@ export default function ShopPage() {
                 }}
               />
 
-              {/* Drag & Drop Zone */}
+              {/* Dropzone */}
               <div
                 onDragOver={(e) => {
                   e.preventDefault();
@@ -506,17 +500,17 @@ export default function ShopPage() {
                     ? 'border-primary bg-primary/5'
                     : file
                       ? 'border-border bg-background'
-                      : 'border-border hover:border-primary/50 hover:bg-surface/80 bg-background/50'
+                      : 'border-border/80 hover:border-primary/50 bg-background/50 hover:bg-surface'
                 }`}
               >
                 {file ? (
                   <div className="flex items-center justify-between text-left">
                     <div className="flex items-center gap-3 min-w-0">
-                      <div className="h-11 w-11 rounded-xl bg-primary/10 text-primary flex items-center justify-center shrink-0">
-                        <FileText className="h-6 w-6" />
+                      <div className="h-10 w-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center shrink-0">
+                        <FileText className="h-5 w-5" />
                       </div>
                       <div className="min-w-0">
-                        <p className="text-xs sm:text-sm font-semibold truncate text-foreground">
+                        <p className="text-xs font-semibold truncate text-foreground">
                           {file.name}
                         </p>
                         <p className="text-[11px] text-muted flex items-center gap-1.5 mt-0.5">
@@ -529,7 +523,7 @@ export default function ShopPage() {
                               {pageCount} {pageCount === 1 ? 'page' : 'pages'}
                             </span>
                           )}
-                          <span>•</span>
+                          <span>·</span>
                           <span>{(file.size / 1024 / 1024).toFixed(2)} MB</span>
                         </p>
                       </div>
@@ -541,51 +535,47 @@ export default function ShopPage() {
                         setFile(null);
                         setPageCount(1);
                       }}
-                      className="p-1.5 rounded-lg text-muted hover:text-foreground hover:bg-surface transition-colors shrink-0"
+                      className="p-1.5 rounded-lg text-muted hover:text-foreground transition-colors shrink-0"
                       title="Remove file"
                     >
                       <X className="h-4 w-4" />
                     </button>
                   </div>
                 ) : (
-                  <div>
-                    <div className="h-12 w-12 rounded-2xl bg-primary/10 text-primary flex items-center justify-center mx-auto mb-3">
-                      <Upload className="h-6 w-6" />
+                  <div className="py-2">
+                    <div className="h-10 w-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center mx-auto mb-2.5">
+                      <Upload className="h-5 w-5" />
                     </div>
-                    <p className="text-xs sm:text-sm font-semibold text-foreground mb-1">
+                    <p className="text-xs font-semibold text-foreground mb-0.5">
                       Tap to choose your document or drag file here
                     </p>
                     <p className="text-[11px] text-muted">
-                      Supports college notes, assignments, forms, IDs
+                      Supports PDF documents, assignments, forms, photos
                     </p>
                   </div>
                 )}
               </div>
 
               {fileError && (
-                <div className="mt-3 p-2.5 rounded-xl bg-destructive/10 border border-destructive/20 text-xs text-destructive">
+                <div className="p-2.5 rounded-xl bg-red-500/10 border border-red-500/20 text-xs text-red-700 dark:text-red-400">
                   {fileError}
                 </div>
               )}
 
               {/* Print Configuration (Revealed when file is picked) */}
               {file && (
-                <motion.div
-                  initial={{ opacity: 0, height: 0 }}
-                  animate={{ opacity: 1, height: 'auto' }}
-                  className="mt-5 space-y-4 pt-4 border-t border-border"
-                >
+                <div className="space-y-4 pt-3 border-t border-border/60">
                   {/* Copies Stepper */}
                   <div className="flex items-center justify-between">
                     <div>
                       <label className="text-xs font-semibold text-foreground block">Copies</label>
-                      <span className="text-[10px] text-muted">Number of print sets</span>
+                      <span className="text-[11px] text-muted">Number of printed sets</span>
                     </div>
-                    <div className="flex items-center gap-2 border border-border bg-background rounded-xl p-1">
+                    <div className="flex items-center gap-2 border border-border bg-background rounded-xl p-1 shadow-2xs">
                       <button
                         type="button"
                         onClick={() => setCopies(Math.max(1, copies - 1))}
-                        className="h-7 w-7 rounded-lg bg-surface text-foreground font-bold flex items-center justify-center hover:bg-surface/80"
+                        className="h-7 w-7 rounded-lg bg-surface text-foreground font-bold flex items-center justify-center hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors"
                       >
                         -
                       </button>
@@ -593,7 +583,7 @@ export default function ShopPage() {
                       <button
                         type="button"
                         onClick={() => setCopies(Math.min(50, copies + 1))}
-                        className="h-7 w-7 rounded-lg bg-surface text-foreground font-bold flex items-center justify-center hover:bg-surface/80"
+                        className="h-7 w-7 rounded-lg bg-surface text-foreground font-bold flex items-center justify-center hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors"
                       >
                         +
                       </button>
@@ -601,72 +591,40 @@ export default function ShopPage() {
                   </div>
 
                   {/* Color Mode Options */}
-                  <div>
-                    <div className="flex justify-between items-center mb-1.5">
+                  <div className="space-y-1.5">
+                    <div className="flex justify-between items-center">
                       <label className="text-xs font-semibold text-foreground">Color Mode</label>
-                      <span className="text-[10px] text-muted">
-                        ₹{rateBW}/pg B&W • ₹{rateColor}/pg Color
+                      <span className="text-[11px] text-muted">
+                        ₹{rateBW}/pg B&W · ₹{rateColor}/pg Color
                       </span>
                     </div>
-                    <div className="grid grid-cols-2 gap-2">
-                      <button
-                        type="button"
-                        onClick={() => setColor('bw')}
-                        className={`py-2 px-3 rounded-xl border text-xs font-semibold transition-all ${
-                          color === 'bw'
-                            ? 'border-primary bg-primary/10 text-primary shadow-sm'
-                            : 'border-border bg-background text-muted hover:text-foreground'
-                        }`}
-                      >
-                        Black & White
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setColor('color')}
-                        className={`py-2 px-3 rounded-xl border text-xs font-semibold transition-all ${
-                          color === 'color'
-                            ? 'border-primary bg-primary/10 text-primary shadow-sm'
-                            : 'border-border bg-background text-muted hover:text-foreground'
-                        }`}
-                      >
-                        Color Print
-                      </button>
-                    </div>
+                    <SegmentedControl
+                      options={[
+                        { value: 'bw', label: 'Black & White' },
+                        { value: 'color', label: 'Color Print' },
+                      ]}
+                      value={color}
+                      onChange={(val) => setColor(val as 'bw' | 'color')}
+                      className="w-full justify-between grid grid-cols-2 text-center"
+                    />
                   </div>
 
                   {/* Sides Option */}
-                  <div>
-                    <label className="text-xs font-semibold text-foreground block mb-1.5">
-                      Sides
-                    </label>
-                    <div className="grid grid-cols-2 gap-2">
-                      <button
-                        type="button"
-                        onClick={() => setDoubleSided(false)}
-                        className={`py-2 px-3 rounded-xl border text-xs font-semibold transition-all ${
-                          !doubleSided
-                            ? 'border-primary bg-primary/10 text-primary shadow-sm'
-                            : 'border-border bg-background text-muted hover:text-foreground'
-                        }`}
-                      >
-                        Single-sided
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setDoubleSided(true)}
-                        className={`py-2 px-3 rounded-xl border text-xs font-semibold transition-all ${
-                          doubleSided
-                            ? 'border-primary bg-primary/10 text-primary shadow-sm'
-                            : 'border-border bg-background text-muted hover:text-foreground'
-                        }`}
-                      >
-                        Double-sided (Duplex)
-                      </button>
-                    </div>
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-semibold text-foreground block">Sides</label>
+                    <SegmentedControl
+                      options={[
+                        { value: 'false', label: 'Single-sided' },
+                        { value: 'true', label: 'Double-sided (Duplex)' },
+                      ]}
+                      value={String(doubleSided)}
+                      onChange={(val) => setDoubleSided(val === 'true')}
+                      className="w-full justify-between grid grid-cols-2 text-center"
+                    />
                   </div>
 
                   {/* Live Cost Summary Pill */}
-                  <div className="p-3 rounded-xl bg-background border border-border flex items-center justify-between text-xs">
+                  <div className="p-3.5 rounded-xl bg-background border border-border flex items-center justify-between text-xs shadow-2xs">
                     <span className="text-muted">
                       {totalBillablePages} billable {totalBillablePages === 1 ? 'page' : 'pages'}
                     </span>
@@ -674,14 +632,14 @@ export default function ShopPage() {
                       Estimated: ₹{estimatedCost}
                     </span>
                   </div>
-                </motion.div>
+                </div>
               )}
 
-              {/* Main Upload / Proceed Button */}
+              {/* Main Action Button */}
               <button
                 type="button"
                 onClick={handleOpenUploadSheet}
-                className="w-full mt-5 flex items-center justify-center gap-2 py-3.5 px-6 rounded-xl bg-primary text-primary-foreground font-semibold text-xs sm:text-sm shadow-md hover:opacity-95 active:scale-[0.99] transition-all"
+                className="w-full flex items-center justify-center gap-2 py-3 px-6 rounded-xl bg-primary text-primary-foreground font-semibold text-xs sm:text-sm shadow-2xs hover:opacity-90 active:scale-[0.98] transition-all mt-2"
               >
                 {file ? (
                   <>
@@ -704,7 +662,7 @@ export default function ShopPage() {
       <AnimatePresence>
         {isBottomSheetOpen && (
           <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
-            {/* Backdrop Overlay */}
+            {/* Backdrop */}
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
@@ -712,33 +670,31 @@ export default function ShopPage() {
               onClick={() => {
                 if (!isSubmitting) setIsBottomSheetOpen(false);
               }}
-              className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+              className="absolute inset-0 bg-black/50 backdrop-blur-xs"
             />
 
-            {/* Bottom Sheet Drawer */}
+            {/* Sheet Drawer */}
             <motion.div
-              initial={{ y: '100%', opacity: 0.8 }}
+              initial={{ y: '100%', opacity: 0.9 }}
               animate={{ y: 0, opacity: 1 }}
-              exit={{ y: '100%', opacity: 0.8 }}
+              exit={{ y: '100%', opacity: 0.9 }}
               transition={{ type: 'spring', damping: 28, stiffness: 300 }}
-              className="relative w-full max-w-lg bg-surface border-t sm:border border-border rounded-t-[28px] sm:rounded-3xl p-6 sm:p-8 shadow-2xl z-10 max-h-[90vh] overflow-y-auto"
+              className="relative w-full max-w-lg bg-surface border-t sm:border border-border rounded-t-3xl sm:rounded-3xl p-6 sm:p-8 shadow-2xl z-10 max-h-[90vh] overflow-y-auto"
             >
-              {/* Drag / Handle bar */}
-              <div className="w-12 h-1.5 bg-border rounded-full mx-auto mb-5 sm:hidden" />
+              {/* Grab Handle */}
+              <div className="w-10 h-1 bg-neutral-300 dark:bg-neutral-700 rounded-full mx-auto mb-4 sm:hidden" />
 
               <div className="flex items-center justify-between mb-4">
                 <div>
-                  <h3 className="text-base sm:text-lg font-bold text-foreground">
-                    Who is this print for?
-                  </h3>
+                  <h3 className="text-base font-bold text-foreground">Who is this print for?</h3>
                   <p className="text-xs text-muted mt-0.5">
-                    Enter your name and phone for counter pickup
+                    Enter your name and mobile number for counter pickup
                   </p>
                 </div>
                 {!isSubmitting && (
                   <button
                     onClick={() => setIsBottomSheetOpen(false)}
-                    className="p-1 rounded-lg text-muted hover:text-foreground hover:bg-background transition-colors"
+                    className="p-1 rounded-lg text-muted hover:text-foreground"
                   >
                     <X className="h-5 w-5" />
                   </button>
@@ -749,12 +705,12 @@ export default function ShopPage() {
               <div className="p-3 rounded-xl bg-background border border-border flex items-center justify-between text-xs mb-4">
                 <span className="text-muted truncate max-w-[200px]">{file?.name}</span>
                 <span className="font-mono font-bold text-foreground">
-                  {totalBillablePages} pgs • ₹{estimatedCost}
+                  {totalBillablePages} pgs · ₹{estimatedCost}
                 </span>
               </div>
 
               {customerError && (
-                <div className="mb-4 p-2.5 rounded-xl bg-destructive/10 border border-destructive/20 text-xs text-destructive">
+                <div className="mb-4 p-2.5 rounded-xl bg-red-500/10 border border-red-500/20 text-xs text-red-700 dark:text-red-400">
                   {customerError}
                 </div>
               )}
@@ -763,10 +719,10 @@ export default function ShopPage() {
               <form onSubmit={handleConfirmAndUpload} className="space-y-4">
                 <div>
                   <label className="block text-xs font-semibold text-foreground mb-1.5">
-                    Your Full Name <span className="text-destructive">*</span>
+                    Full Name <span className="text-red-500">*</span>
                   </label>
                   <div className="relative">
-                    <User className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted" />
+                    <User className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted pointer-events-none" />
                     <input
                       type="text"
                       required
@@ -774,17 +730,17 @@ export default function ShopPage() {
                       value={customerName}
                       disabled={isSubmitting}
                       onChange={(e) => setCustomerName(e.target.value)}
-                      className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-border bg-background text-xs sm:text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary disabled:opacity-50"
+                      className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-border bg-background text-xs sm:text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 disabled:opacity-50 transition-all shadow-2xs"
                     />
                   </div>
                 </div>
 
                 <div>
                   <label className="block text-xs font-semibold text-foreground mb-1.5">
-                    Mobile Phone Number <span className="text-destructive">*</span>
+                    Mobile Phone Number <span className="text-red-500">*</span>
                   </label>
                   <div className="relative">
-                    <Smartphone className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted" />
+                    <Smartphone className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted pointer-events-none" />
                     <input
                       type="tel"
                       required
@@ -793,10 +749,10 @@ export default function ShopPage() {
                       disabled={isSubmitting}
                       maxLength={10}
                       onChange={(e) => setCustomerPhone(e.target.value.replace(/\D/g, ''))}
-                      className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-border bg-background text-xs sm:text-sm text-foreground font-mono focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary disabled:opacity-50"
+                      className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-border bg-background text-xs sm:text-sm text-foreground font-mono focus:outline-none focus:ring-2 focus:ring-primary/20 disabled:opacity-50 transition-all shadow-2xs"
                     />
                   </div>
-                  <p className="text-[10px] text-muted mt-1">
+                  <p className="text-[11px] text-muted mt-1">
                     Used to identify your printed documents at the counter
                   </p>
                 </div>
@@ -808,7 +764,7 @@ export default function ShopPage() {
                       <span>Uploading document...</span>
                       <span className="font-mono">{uploadProgress}%</span>
                     </div>
-                    <div className="w-full h-2 rounded-full bg-border overflow-hidden">
+                    <div className="w-full h-1.5 rounded-full bg-neutral-200 dark:bg-neutral-800 overflow-hidden">
                       <div
                         className="h-full bg-primary transition-all duration-150"
                         style={{ width: `${uploadProgress}%` }}
@@ -817,11 +773,11 @@ export default function ShopPage() {
                   </div>
                 )}
 
-                {/* Next / Proceed Button */}
+                {/* Next / Submit Button */}
                 <button
                   type="submit"
                   disabled={isSubmitting}
-                  className="w-full flex items-center justify-center gap-2 py-3 px-6 rounded-xl bg-primary text-primary-foreground font-semibold text-xs sm:text-sm shadow-md hover:opacity-95 active:scale-[0.99] transition-all disabled:opacity-50 mt-2"
+                  className="w-full flex items-center justify-center gap-2 py-3 px-6 rounded-xl bg-primary text-primary-foreground font-semibold text-xs sm:text-sm shadow-2xs hover:opacity-90 active:scale-[0.98] transition-all disabled:opacity-50 mt-2"
                 >
                   {isSubmitting ? (
                     <>
@@ -830,7 +786,7 @@ export default function ShopPage() {
                     </>
                   ) : (
                     <>
-                      <span>Next • Submit Print Order</span>
+                      <span>Submit Print Order</span>
                       <ChevronRight className="h-4 w-4" />
                     </>
                   )}

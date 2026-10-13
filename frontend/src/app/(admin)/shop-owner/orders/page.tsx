@@ -2,28 +2,19 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
 import { getMyShops, getShopOrders, ShopData } from '@/services/shop.service';
-import { useAuthStore } from '@/store/auth';
-import { ArrowLeft, Loader2, Store, Search, Filter } from 'lucide-react';
+import StatusBadge from '@/components/ui/StatusBadge';
+import SegmentedControl from '@/components/ui/SegmentedControl';
+import { Loader2, ShoppingBag, Search, ArrowRight } from 'lucide-react';
 
 export default function ShopOwnerOrdersPage() {
-  const router = useRouter();
-  const { isAuthenticated } = useAuthStore();
   const [statusFilter, setStatusFilter] = useState('All');
   const [searchQuery, setSearchQuery] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
 
   useEffect(() => {
-    const localToken = typeof window !== 'undefined' ? localStorage.getItem('velox_token') : null;
-    if (!localToken && !isAuthenticated) {
-      router.push('/shop-owner/login');
-    }
-  }, [isAuthenticated, router]);
-
-  useEffect(() => {
-    const timer = setTimeout(() => setDebouncedSearch(searchQuery), 500);
+    const timer = setTimeout(() => setDebouncedSearch(searchQuery), 400);
     return () => clearTimeout(timer);
   }, [searchQuery]);
 
@@ -41,136 +32,135 @@ export default function ShopOwnerOrdersPage() {
     enabled: !!assignedShop?.id,
   });
 
+  const filterOptions = [
+    { value: 'All', label: 'All' },
+    { value: 'WAITING', label: 'Waiting' },
+    { value: 'PRINTING', label: 'Printing' },
+    { value: 'COMPLETED', label: 'Completed' },
+    { value: 'CANCELLED', label: 'Cancelled' },
+  ];
+
   if (isShopsLoading) {
     return (
-      <div className="min-h-screen bg-surface flex flex-col items-center justify-center gap-3">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-        <p className="text-xs text-muted">Loading orders...</p>
+      <div className="min-h-[70vh] flex flex-col items-center justify-center gap-3">
+        <Loader2 className="h-7 w-7 animate-spin text-primary" />
+        <p className="text-xs text-muted">Loading order directory...</p>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-background text-foreground py-10 px-4 sm:px-6">
-      <div className="max-w-6xl mx-auto">
-        <div className="flex items-center justify-between mb-8">
-          <Link
-            href="/shop-owner"
-            className="inline-flex items-center gap-2 text-xs font-medium text-muted hover:text-foreground transition-colors"
-          >
-            <ArrowLeft className="h-4 w-4" />
-            Back to Shop Counter
-          </Link>
-          <span className="text-xs font-mono text-muted bg-surface border border-border px-2 py-0.5 rounded">
-            {assignedShop?.name || 'Assigned Store'}
-          </span>
-        </div>
-
-        <div className="flex items-center gap-3 mb-8">
-          <div className="h-10 w-10 rounded-xl bg-violet-500/10 text-violet-600 flex items-center justify-center">
-            <Store className="h-5 w-5" />
+    <div className="py-8 px-4 sm:px-8 max-w-6xl mx-auto space-y-6">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-border/60">
+        <div className="flex items-center gap-3">
+          <div className="h-10 w-10 rounded-xl bg-purple-500/10 text-purple-600 dark:text-purple-400 flex items-center justify-center shrink-0">
+            <ShoppingBag className="h-5 w-5" />
           </div>
           <div>
-            <h1 className="text-xl font-bold tracking-tight">Order History</h1>
+            <h1 className="text-2xl font-bold tracking-tight text-foreground">Order Directory</h1>
             <p className="text-xs text-muted mt-0.5">
-              View and filter all past and present customer orders.
+              History, receipts, and order statuses for {assignedShop?.name || 'Store'}
             </p>
           </div>
         </div>
+      </div>
 
-        <div className="flex flex-col sm:flex-row items-center gap-4 mb-6">
-          <div className="relative flex-1 w-full">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted" />
-            <input
-              type="text"
-              placeholder="Search by order code..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-9 pr-4 py-2 text-sm bg-surface border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/20"
-            />
-          </div>
-          <div className="flex items-center gap-2 w-full sm:w-auto">
-            <Filter className="h-4 w-4 text-muted hidden sm:block" />
-            <select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-              className="w-full sm:w-auto px-4 py-2 text-sm bg-surface border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/20"
-            >
-              <option value="All">All Statuses</option>
-              <option value="COMPLETED">Completed</option>
-              <option value="WAITING">Waiting</option>
-              <option value="PRINTING">Printing</option>
-              <option value="CANCELLED">Cancelled</option>
-              <option value="FAILED">Failed</option>
-            </select>
-          </div>
+      {/* Search and Filters Bar */}
+      <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
+        <div className="relative flex-1 max-w-md">
+          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted pointer-events-none" />
+          <input
+            type="text"
+            placeholder="Search by order code..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full pl-10 pr-4 py-2 text-xs sm:text-sm bg-surface border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all shadow-2xs"
+          />
         </div>
 
-        <div className="bg-surface/30 border border-border rounded-2xl overflow-hidden shadow-sm">
-          {isOrdersLoading ? (
-            <div className="flex justify-center p-12">
-              <Loader2 className="h-6 w-6 animate-spin text-muted" />
-            </div>
-          ) : ordersData?.orders && ordersData.orders.length > 0 ? (
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-sm">
-                <thead className="bg-surface/50 border-b border-border text-xs uppercase text-muted font-semibold tracking-wider">
-                  <tr>
-                    <th className="px-6 py-4">Order Code</th>
-                    <th className="px-6 py-4">Date</th>
-                    <th className="px-6 py-4">Status</th>
-                    <th className="px-6 py-4">Specs</th>
-                    <th className="px-6 py-4">Amount</th>
+        <div className="overflow-x-auto pb-1 md:pb-0">
+          <SegmentedControl
+            options={filterOptions}
+            value={statusFilter}
+            onChange={setStatusFilter}
+            size="sm"
+          />
+        </div>
+      </div>
+
+      {/* Orders Table */}
+      <div className="rounded-2xl border border-border bg-surface/40 overflow-hidden shadow-2xs">
+        {isOrdersLoading ? (
+          <div className="flex justify-center p-14">
+            <Loader2 className="h-6 w-6 animate-spin text-muted" />
+          </div>
+        ) : ordersData?.orders && ordersData.orders.length > 0 ? (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs">
+              <thead className="bg-surface border-b border-border text-[11px] uppercase tracking-wider text-muted font-semibold">
+                <tr>
+                  <th className="px-6 py-3.5">Order Code</th>
+                  <th className="px-6 py-3.5">Date & Time</th>
+                  <th className="px-6 py-3.5">Status</th>
+                  <th className="px-6 py-3.5">Specs</th>
+                  <th className="px-6 py-3.5">Amount</th>
+                  <th className="px-6 py-3.5 text-right">Action</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border/60">
+                {ordersData.orders.map((order: any) => (
+                  <tr key={order.id} className="hover:bg-surface/60 transition-colors">
+                    <td className="px-6 py-4">
+                      <Link
+                        href={`/shop-owner/orders/${order.id}`}
+                        className="font-mono font-bold text-foreground hover:text-primary transition-colors underline-offset-2 hover:underline"
+                      >
+                        {order.orderCode}
+                      </Link>
+                    </td>
+                    <td className="px-6 py-4 text-muted">
+                      {new Date(order.createdAt).toLocaleString([], {
+                        dateStyle: 'medium',
+                        timeStyle: 'short',
+                      })}
+                    </td>
+                    <td className="px-6 py-4">
+                      <StatusBadge status={order.orderStatus} size="sm" />
+                    </td>
+                    <td className="px-6 py-4 text-muted">
+                      <span className="font-medium text-foreground">{order.totalPages} pages</span>{' '}
+                      · {order.copies} {order.copies === 1 ? 'copy' : 'copies'}
+                    </td>
+                    <td className="px-6 py-4 font-mono font-bold text-foreground">
+                      ₹{parseFloat(order.totalPrice || order.payment?.amount || 0).toFixed(2)}
+                    </td>
+                    <td className="px-6 py-4 text-right">
+                      <Link
+                        href={`/shop-owner/orders/${order.id}`}
+                        className="inline-flex items-center gap-1 text-primary hover:underline font-semibold"
+                      >
+                        Details <ArrowRight className="h-3 w-3" />
+                      </Link>
+                    </td>
                   </tr>
-                </thead>
-                <tbody className="divide-y divide-border/50">
-                  {ordersData.orders.map((order: any) => (
-                    <tr key={order.id} className="hover:bg-surface/50 transition-colors">
-                      <td className="px-6 py-4">
-                        <Link
-                          href={`/shop-owner/orders/${order.id}`}
-                          className="font-mono font-medium hover:text-primary transition-colors"
-                        >
-                          {order.orderCode}
-                        </Link>
-                      </td>
-                      <td className="px-6 py-4 text-muted text-xs">
-                        {new Date(order.createdAt).toLocaleString()}
-                      </td>
-                      <td className="px-6 py-4">
-                        <span
-                          className={`inline-flex items-center px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wider ${
-                            order.orderStatus === 'COMPLETED'
-                              ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400'
-                              : order.orderStatus === 'CANCELLED' || order.orderStatus === 'FAILED'
-                                ? 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-400'
-                                : 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-400'
-                          }`}
-                        >
-                          {order.orderStatus}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 text-xs text-muted">
-                        {order.totalPages} pages, {order.copies} copies
-                      </td>
-                      <td className="px-6 py-4 font-mono font-medium">
-                        ₹{parseFloat(order.totalPrice || order.payment?.amount || 0).toFixed(2)}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <div className="flex flex-col items-center justify-center p-14 text-center">
+            <div className="h-12 w-12 rounded-2xl bg-neutral-100 dark:bg-neutral-800 flex items-center justify-center text-muted mb-3">
+              <ShoppingBag className="h-6 w-6" />
             </div>
-          ) : (
-            <div className="flex flex-col items-center justify-center p-12 text-center">
-              <Store className="h-12 w-12 text-muted mb-4 opacity-50" />
-              <h3 className="text-lg font-bold">No completed orders today.</h3>
-              <p className="text-sm text-muted mt-1 max-w-sm mx-auto">
-                No orders match your filter criteria.
-              </p>
-            </div>
-          )}
-        </div>
+            <h3 className="text-sm font-bold text-foreground">No matching orders found</h3>
+            <p className="text-xs text-muted mt-1 max-w-sm">
+              {searchQuery
+                ? `No orders match "${searchQuery}". Try clearing your search.`
+                : 'No orders recorded in this filter view.'}
+            </p>
+          </div>
+        )}
       </div>
     </div>
   );
